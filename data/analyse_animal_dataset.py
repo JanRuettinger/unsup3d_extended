@@ -21,8 +21,9 @@ for path in pathlist:
     progress = (counter/num_files)*100
     print(f'{progress: .2f}%',flush=True,end='\r')
     path_in_str = str(path)
-    class_name = path.parent.parent
+    class_name = path.parent.name
     image_name = path.stem
+    print(class_name)
     img = cv2.imread(path_in_str)
     height, width, channels = img.shape
     img_dict = {'image_name': image_name, 'class': class_name, 'width': width, 'height': height,}
