@@ -9,22 +9,31 @@ from pathlib import Path
 root_path = "/scratch/shared/beegfs/janhr/data/unsup3d_extended/animals_original/"
 
 data = [] # create list of dicts which will later transformed to a pandas dataframe
-pathlist = Path(root_path).glob('**/*.JPEG')
+pathlist = Path(root_path).glob('**/*.jpg')
+num_files = len(list(pathlist))
+assert num_files == 117484, "Not all images were found" # check if all image files were found
+pathlist = Path(root_path).glob('**/*.jpg')
 
-assert len(pathlist) == 117484 # check if all image files were found
-
+counter = 0
 for path in pathlist:
      # because path is object not string
+    counter = counter+1
+    progress = (counter/num_files)*100
+    print(f'{progress: .2f}%',flush=True,end='\r')
     path_in_str = str(path)
     class_name = path.parent.parent
     image_name = path.stem
     img = cv2.imread(path_in_str)
     height, width, channels = img.shape
-    img_dict = {'image_name': img_name, 'class': class_name, 'width': width, 'height': height, 'smallest_dimension': min(width, height)}
+    img_dict = {'image_name': image_name, 'class': class_name, 'width': width, 'height': height,}
     data.append(img_dict)
 
-df = pd.DataFrame(data, columns=['image_name', 'class', 'width', 'height', 'smallest_dimension'])
+df = pd.DataFrame(data, columns=['image_name', 'class', 'width', 'height'])
+df.to_csv("/users/janhr/unsup3d_extended/data/animals_dataset_dataframe.csv")
 
-print("Describe summary of smallest dimension column")
-print(df["smallest_dimension"].describe())
+print(f'Counter: {counter}')
+print("Summary width:")
+print(df["width"].describe())
+print("Summary height:")
+print(df["height"].describe())
 
