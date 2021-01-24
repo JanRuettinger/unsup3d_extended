@@ -22,11 +22,13 @@ def crop_max_square(pil_img):
 
 
 # 1. Split dataset into train/val/test
-split_folders.ratio('Data', output="output", seed=1337, ratio=(.8, 0.1,0.1))
+split_folders.ratio(input=INPUT_PATH, output=OUTPUT_PATH, seed=1337, ratio=(.8, 0.1,0.1))
 
 print("Images were split into train, val and test.")
 
-# 2. Move images from train/class_name/img.jpg to train/img.jpg
+# 2. Move and resize images
+    # 1. Resize and crop images
+    # 2. Move images from train/class_name/img.jpg to train/img.jpg
 train_path = OUTPUT_PATH+"/train"
 val_path = OUTPUT_PATH+"/val"
 test_path = OUTPUT_PATH+"/test"
