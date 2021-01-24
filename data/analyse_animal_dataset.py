@@ -8,7 +8,7 @@ from pathlib import Path
 
 root_path = "/scratch/shared/beegfs/janhr/data/unsup3d_extended/animals_original/"
 
-data = [] # create list of dicts which will later transformed to a pandas dataframe
+data = [] # create list of dicts which will later be transformed to a pandas dataframe
 pathlist = Path(root_path).glob('**/*.jpg')
 num_files = len(list(pathlist))
 assert num_files == 117484, "Not all images were found" # check if all image files were found
