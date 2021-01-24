@@ -32,9 +32,13 @@ for path in pathlist:
 df = pd.DataFrame(data, columns=['image_name', 'class', 'width', 'height'])
 df.to_csv("/users/janhr/unsup3d_extended/data/animals_dataset_dataframe.csv")
 
-print(f'Counter: {counter}')
 print("Summary width:")
 print(df["width"].describe())
 print("Summary height:")
 print(df["height"].describe())
 
+num1 = len(df[(df["width"] < 64) | (df["height"] < 64)])
+num2= len(df[(df["width"] > 1000) | (df["height"] > 1000)])
+
+print(f"Number of images where width or height < 64: {num1}")
+print(f"Number of images where width or height > 1000: {num2}")
