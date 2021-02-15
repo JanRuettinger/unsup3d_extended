@@ -126,9 +126,9 @@ def get_grid(b, H, W, normalize=True):
 
 def export_to_obj_string(vertices, normal):
     b, h, w, _ = vertices.shape
-    vertices[:,:,:,1:2] = -1*vertices[:,:,:,1:2]  # flip y
-    vertices[:,:,:,2:3] = 1-vertices[:,:,:,2:3]  # flip and shift z
-    vertices *= 100
+    # vertices[:,:,:,1:2] = -1*vertices[:,:,:,1:2]  # flip y
+    # vertices[:,:,:,2:3] = 1-vertices[:,:,:,2:3]  # flip and shift z
+    # vertices *= 10
     vertices_center = nn.functional.avg_pool2d(vertices.permute(0,3,1,2), 2, stride=1).permute(0,2,3,1)
     vertices = torch.cat([vertices.view(b,h*w,3), vertices_center.view(b,(h-1)*(w-1),3)], 1)
 
@@ -138,7 +138,7 @@ def export_to_obj_string(vertices, normal):
     vertice_textures = torch.cat([vertice_textures.view(b,h*w,2), vertice_textures_center.view(b,(h-1)*(w-1),2)], 1) /2+0.5  # Bx(H*W)x2, [0,1]
 
     vertice_normals = normal.clone()
-    vertice_normals[:,:,:,0:1] = -1*vertice_normals[:,:,:,0:1]
+    # vertice_normals[:,:,:,0:1] = -1*vertice_normals[:,:,:,0:1]
     vertice_normals_center = nn.functional.avg_pool2d(vertice_normals.permute(0,3,1,2), 2, stride=1).permute(0,2,3,1)
     vertice_normals_center = vertice_normals_center / (vertice_normals_center**2).sum(3, keepdim=True)**0.5
     vertice_normals = torch.cat([vertice_normals.view(b,h*w,3), vertice_normals_center.view(b,(h-1)*(w-1),3)], 1)  # Bx(H*W)x2, [0,1]

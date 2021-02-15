@@ -3,8 +3,17 @@ import numpy as np
 from PIL import Image
 import torch
 import torch.nn as nn
-from .utils import *
+from utils import *
+from matplotlib import pyplot as plt
+from mpl_toolkits import mplot3d
+from renderer import Renderer as Render
 
+import pickle
+
+
+def save_object(obj, filename):
+    with open(filename, 'wb') as output:  # Overwrites any existing file.
+        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 
 EPS = 1e-7
 
@@ -25,9 +34,11 @@ class Demo():
         self.xy_translation_range = 0.1
         self.z_translation_range = 0
         self.fov = 10  # in degrees
+        self.renderer = Render({"device": self.device})
 
         self.depth_rescaler = lambda d : (1+d)/2 *self.max_depth + (1-d)/2 *self.min_depth  # (-1,1) => (min_depth,max_depth)
         self.depth_inv_rescaler = lambda d :  (d-self.min_depth) / (self.max_depth-self.min_depth)  # (min_depth,max_depth) => (0,1)
+        self.rot_center_depth = (self.min_depth+self.max_depth)/2
 
         fx = (self.image_size-1)/2/(np.tan(self.fov/2 *np.pi/180))
         fy = (self.image_size-1)/2/(np.tan(self.fov/2 *np.pi/180))
@@ -64,7 +75,7 @@ class Demo():
 
         ## renderer
         if self.render_video:
-            from unsup3d.renderer import Renderer
+            from unsup3d_extended.renderer import Renderer
             assert 'cuda' in self.device, 'A GPU device is required for rendering because the neural_renderer only has GPU implementation.'
             cfgs = {
                 'device': self.device,
@@ -73,7 +84,7 @@ class Demo():
                 'max_depth': self.max_depth,
                 'fov': self.fov,
             }
-            self.renderer = Renderer(cfgs)
+            self.renderer = Renderer(cfgcc)
 
     def load_checkpoint(self):
         print(f"Loading checkpoint from {self.checkpoint_path}")
@@ -82,6 +93,66 @@ class Demo():
         self.netA.load_state_dict(cp['netA'])
         self.netL.load_state_dict(cp['netL'])
         self.netV.load_state_dict(cp['netV'])
+
+    def get_rotation_matrix(self,tx, ty, tz):
+        m_x = torch.zeros((len(tx), 3, 3)).to(tx.device)
+        m_y = torch.zeros((len(tx), 3, 3)).to(tx.device)
+        m_z = torch.zeros((len(tx), 3, 3)).to(tx.device)
+
+        m_x[:, 1, 1], m_x[:, 1, 2] = tx.cos(), -tx.sin()
+        m_x[:, 2, 1], m_x[:, 2, 2] = tx.sin(), tx.cos()
+        m_x[:, 0, 0] = 1
+
+        m_y[:, 0, 0], m_y[:, 0, 2] = ty.cos(), ty.sin()
+        m_y[:, 2, 0], m_y[:, 2, 2] = -ty.sin(), ty.cos()
+        m_y[:, 1, 1] = 1
+
+        m_z[:, 0, 0], m_z[:, 0, 1] = tz.cos(), -tz.sin()
+        m_z[:, 1, 0], m_z[:, 1, 1] = tz.sin(), tz.cos()
+        m_z[:, 2, 2] = 1
+        return torch.matmul(m_z, torch.matmul(m_y, m_x))
+
+    def get_transform_matrices(self,view):
+        b = view.size(0)
+        if view.size(1) == 6:
+            rx = view[:,0]
+            ry = view[:,1]
+            rz = view[:,2]
+            trans_xyz = view[:,3:].reshape(b,1,3)
+        elif view.size(1) == 5:
+            rx = view[:,0]
+            ry = view[:,1]
+            rz = view[:,2]
+            delta_xy = view[:,3:].reshape(b,1,2)
+            trans_xyz = torch.cat([delta_xy, torch.zeros(b,1,1).to(view.device)], 2)
+        elif view.size(1) == 3:
+            rx = view[:,0]
+            ry = view[:,1]
+            rz = view[:,2]
+            trans_xyz = torch.zeros(b,1,3).to(view.device)
+        rot_mat = self.get_rotation_matrix(rx, ry, rz)
+        return rot_mat, trans_xyz
+
+    def set_transform_matrices(self, view):
+        self.rot_mat, self.trans_xyz = self.get_transform_matrices(view)
+
+    def rotate_pts(self, pts, rot_mat):
+        centroid = torch.FloatTensor([0.,0.,self.rot_center_depth]).to(pts.device).view(1,1,3)
+        pts = pts - centroid  # move to centroid
+        pts = pts.matmul(rot_mat.transpose(2,1))  # rotate
+        pts = pts + centroid  # move back
+        return pts
+
+    def translate_pts(self, pts, trans_xyz):
+        return pts + trans_xyz
+
+    def get_warped_3d_grid(self, depth):
+        b, h, w = depth.shape
+        grid_3d = self.depth_to_3d_grid(depth).reshape(b,-1,3)
+        grid_3d = self.rotate_pts(grid_3d, self.rot_mat)
+        grid_3d = self.translate_pts(grid_3d, self.trans_xyz)
+        return grid_3d.reshape(b,h,w,3) # return 3d grid3d_canon
+
 
     def depth_to_3d_grid(self, depth, inv_K=None):
         if inv_K is None:
@@ -123,7 +194,7 @@ class Demo():
         w0 = int(wc-crop+crop)
         return im[h0:h0+crop*2, w0:w0+crop*2]
 
-    def run(self, pil_im):
+    def run(self, pil_im, filename):
         im = np.uint8(pil_im)
 
         ## face detection
@@ -133,6 +204,7 @@ class Demo():
                 return -1
 
         h, w, _ = im.shape
+
         im = torch.FloatTensor(im /255.).permute(2,0,1).unsqueeze(0)
         # resize to 128 first if too large, to avoid bilinear downsampling artifacts
         if h > self.image_size*4 and w > self.image_size*4:
@@ -143,63 +215,210 @@ class Demo():
             self.input_im = im.to(self.device) *2.-1.
             b, c, h, w = self.input_im.shape
 
-            ## predict canonical depth
-            self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
-            self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-            self.canon_depth = self.canon_depth.tanh()
-            self.canon_depth = self.depth_rescaler(self.canon_depth)
+        print(im.size())
+        print(im.shape)
+        print(b)
 
-            print(f"canon_depth_raw: {self.canon_depth_raw.size()}") #0x64x64
-            print(f"canon_depth: {self.canon_depth.size()}")
+        ## predict canonical depth
+        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        self.canon_depth = self.canon_depth.tanh()
+        self.canon_depth = self.depth_rescaler(self.canon_depth)
 
-            ## clamp border depth
-            depth_border = torch.zeros(1,h,w-4).to(self.input_im.device)
-            depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
-            self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
+        ## clamp border depth
+        depth_border = torch.zeros(1,h,w-4).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
+        self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
-            ## predict canonical albedo
-            self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        ## predict canonical albedo
+        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
-            print(f"canon_albedo: {self.canon_albedo.size()}")
-            print(f"single value albedo: {self.canon_albedo[0,:,1,1]}")
+        ## predict confidence map
+        # self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
 
-            ## predict lighting
-            canon_light = self.netL(self.input_im)  # Bx4
-            self.canon_light_a = canon_light[:,:1] /2+0.5  # ambience term
-            self.canon_light_b = canon_light[:,1:2] /2+0.5  # diffuse term
-            canon_light_dxy = canon_light[:,2:]
-            self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b,1).to(self.input_im.device)], 1)
-            self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
+        ## predict lighting
+        canon_light = self.netL(self.input_im).repeat(2,1)  # Bx4
+        self.canon_light_a = canon_light[:,:1] /2+0.5  # ambience term
+        self.canon_light_b = canon_light[:,1:2] /2+0.5  # diffuse term
+        canon_light_dxy = canon_light[:,2:]
+        self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b*2,1).to(self.input_im.device)], 1)
+        self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
 
-            print(f"canon_light: {canon_light}")
+        ## shading
+        self.canon_normal = self.renderer.get_normal_from_depth(self.canon_depth)
+        self.canon_diffuse_shading = (self.canon_normal * self.canon_light_d.view(-1,1,1,3)).sum(3).clamp(min=0).unsqueeze(1)
+        canon_shading = self.canon_light_a.view(-1,1,1,1) + self.canon_light_b.view(-1,1,1,1)*self.canon_diffuse_shading
+        self.canon_im = (self.canon_albedo/2+0.5) * canon_shading *2-1
 
-            ## shading
-            self.canon_normal = self.get_normal_from_depth(self.canon_depth)
-            self.canon_diffuse_shading = (self.canon_normal * self.canon_light_d.view(-1,1,1,3)).sum(3).clamp(min=0).unsqueeze(1)
-            canon_shading = self.canon_light_a.view(-1,1,1,1) + self.canon_light_b.view(-1,1,1,1)*self.canon_diffuse_shading
-            self.canon_im = (self.canon_albedo/2+0.5) * canon_shading *2-1
+        ## predict viewpoint transformation
+        self.view = self.netV(self.input_im)
+        self.view = torch.cat([
+            self.view[:,:3] *np.pi/180 *self.xyz_rotation_range,
+            self.view[:,3:5] *self.xy_translation_range,
+            self.view[:,5:] *self.z_translation_range], 1)
 
-            ## predict viewpoint transformation
-            self.view = self.netV(self.input_im)
-            self.view = torch.cat([
-                self.view[:,:3] *np.pi/180 *self.xyz_rotation_range,
-                self.view[:,3:5] *self.xy_translation_range,
-                self.view[:,5:] *self.z_translation_range], 1)
 
-            ## export to obj strings
-            vertices = self.depth_to_3d_grid(self.canon_depth)  # BxHxWx3
-            self.objs, self.mtls = export_to_obj_string(vertices, self.canon_normal)
+        ## reconstruct input view
+        self.renderer.set_transform_matrices(self.view)
+        self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
+        self.recon_normal = self.renderer.get_normal_from_depth(self.recon_depth)
+        grid_2d_from_canon = self.renderer.get_inv_warped_2d_grid(self.recon_depth)
+        self.recon_im = nn.functional.grid_sample(self.canon_im, grid_2d_from_canon, mode='bilinear')
 
-            ## resize to output size
-            self.canon_depth = nn.functional.interpolate(self.canon_depth.unsqueeze(1), (self.output_size, self.output_size), mode='bilinear', align_corners=False).squeeze(1)
-            self.canon_normal = nn.functional.interpolate(self.canon_normal.permute(0,3,1,2), (self.output_size, self.output_size), mode='bilinear', align_corners=False).permute(0,2,3,1)
-            self.canon_normal = self.canon_normal / (self.canon_normal**2).sum(3, keepdim=True)**0.5
-            self.canon_diffuse_shading = nn.functional.interpolate(self.canon_diffuse_shading, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
-            self.canon_albedo = nn.functional.interpolate(self.canon_albedo, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
-            self.canon_im = nn.functional.interpolate(self.canon_im, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
+        margin = (self.max_depth - self.min_depth) /2
+        recon_im_mask = (self.recon_depth < self.max_depth+margin).float()  # invalid border pixels have been clamped at max_depth+margin
+        recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]  # both original and flip reconstruction
+        recon_im_mask_both = recon_im_mask_both.repeat(2,1,1).unsqueeze(1).detach()
+        self.recon_im = self.recon_im * recon_im_mask_both
 
-            if self.render_video:
-                self.render_animation()
+
+        ## export to obj strings
+        grid3d_canon = self.depth_to_3d_grid(self.canon_depth)  # BxHxWx3
+        self.objs, self.mtls = export_to_obj_string(grid3d_canon, self.canon_normal)
+
+
+
+        # im = torch.FloatTensor(im /255.).permute(2,0,1).unsqueeze(0)
+        # # resize to 128 first if too large, to avoid bilinear downsampling artifacts
+        # if h > self.image_size*4 and w > self.image_size*4:
+        #     im = nn.functional.interpolate(im, (self.image_size*2, self.image_size*2), mode='bilinear', align_corners=False)
+        # im = nn.functional.interpolate(im, (self.image_size, self.image_size), mode='bilinear', align_corners=False)
+
+        # with torch.no_grad():
+        #     self.input_im = im.to(self.device) *2.-1.
+        #     b, c, h, w = self.input_im.shape
+
+        #     ## predict canonical depth
+        #     self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        #     self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        #     self.canon_depth = self.canon_depth.tanh()
+        #     self.canon_depth = self.depth_rescaler(self.canon_depth)
+
+        #     # print(f"canon_depth_raw: {self.canon_depth_raw.size()}") #0x64x64
+        #     # print(f"canon_depth: {self.canon_depth.size()}")
+
+        #     # fig0 = plt.figure(0,figsize=(5,5))
+        #     # im_plot = im[0].view(h,w,c)
+        #     # plt.imshow(pil_im)
+        #     # plt.show()
+
+        #     # fig0 = plt.figure(1)
+        #     # grid3d_canon = self.depth_to_3d_grid(self.canon_depth)
+
+        #     # ax1 = plt.axes(projection='3d')
+        #     # # rgb = im[0,:,]
+        #     # rgb = im[0].permute(1,2,0).view(h*w,c)
+        #     # # print(f"{rgb.shape}")
+        #     # print(rgb.shape)
+        #     # print(grid3d_canon[0,:,:,0].shape)
+        #     # ax1.scatter(grid3d_canon[0,:,:,0],grid3d_canon[0,:,:,1], grid3d_canon[0,:,:,2], c ='r')
+
+
+        #     ## predict viewpoint transformation
+        #     self.view = self.netV(self.input_im)
+        #     self.view = torch.cat([
+        #         self.view[:,:3] *np.pi/180 *self.xyz_rotation_range,
+        #         self.view[:,3:5] *self.xy_translation_range,
+        #         self.view[:,5:] *self.z_translation_range], 1)
+
+        #     self.set_transform_matrices(self.view)
+
+        #     # fig1 = plt.figure(2)
+        #     # grid3d_warped = self.get_warped_3d_grid(self.canon_depth)
+        #     # ax2 = plt.axes(projection='3d')
+        #     # ax2.scatter(grid3d_warped[0,:,:,0],grid3d_warped[0,:,:,1], grid3d_warped[0,:,:,2], c =rgb[:,:])
+
+        #     ## clamp border depth
+        #     depth_border = torch.zeros(1,h,w-4).to(self.input_im.device)
+        #     depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        #     self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
+
+        #     ## predict canonical albedo
+        #     self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+
+        #     # print(f"canon_albedo: {self.canon_albedo.size()}")
+        #     # print(f"single value albedo: {self.canon_albedo[0,:,1,1]}")
+
+        #     ## predict lighting
+        #     canon_light = self.netL(self.input_im)  # Bx4
+        #     self.canon_light_a = canon_light[:,:1] /2+0.5  # ambience term
+        #     self.canon_light_b = canon_light[:,1:2] /2+0.5  # diffuse term
+        #     canon_light_dxy = canon_light[:,2:]
+        #     self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b,1).to(self.input_im.device)], 1)
+        #     self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
+
+        #     # print(f"canon_light: {canon_light}")
+        #     # ambience term, diffuce term, diffuse lgith direction
+
+
+        #     ## shading
+        #     self.canon_normal = self.get_normal_from_depth(self.canon_depth)
+        #     self.canon_diffuse_shading = (self.canon_normal * self.canon_light_d.view(-1,1,1,3)).sum(3).clamp(min=0).unsqueeze(1)
+        #     canon_shading = self.canon_light_a.view(-1,1,1,1) + self.canon_light_b.view(-1,1,1,1)*self.canon_diffuse_shading
+        #     self.canon_im = (self.canon_albedo/2+0.5) * canon_shading *2-1
+
+
+
+
+        #     ### SAVE INTERMEDIATE RESULTS ###
+        #     # print(f"canon_albedo shape: {self.canon_albedo.shape}")
+        #     # print(f"canon_depth shape: {self.canon_depth.shape}")
+        #     # print(f"canon normal: {self.canon_normal}")
+        #     # print(f"view shape: {self.view.shape}")
+        #     # print(f"canon_light_a {self.canon_light_a.shape}")
+        #     # print(f"canon_light_b {self.canon_light_b.shape}")
+        #     # print(f"canon_light_b {self.canon_light_d.shape}")
+        #     # print(f"input_im shape {self.input_im.shape}")
+        #     # print("\n")
+        #     # print(self.objs)
+        #     # print(self.mtls)
+
+
+        #     ## resize to output size
+        #     # self.canon_depth = nn.functional.interpolate(self.canon_depth.unsqueeze(1), (self.output_size, self.output_size), mode='bilinear', align_corners=False).squeeze(1)
+        #     # self.canon_normal = nn.functional.interpolate(self.canon_normal.permute(0,3,1,2), (self.output_size, self.output_size), mode='bilinear', align_corners=False).permute(0,2,3,1)
+        #     # self.canon_normal = self.canon_normal / (self.canon_normal**2).sum(3, keepdim=True)**0.5
+        #     # self.canon_diffuse_shading = nn.functional.interpolate(self.canon_diffuse_shading, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
+        #     # self.canon_albedo = nn.functional.interpolate(self.canon_albedo, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
+        #     # self.canon_im = nn.functional.interpolate(self.canon_im, (self.output_size, self.output_size), mode='bilinear', align_corners=False)
+
+
+        #     ## reconstruct input view    
+        #     self.renderer.set_transform_matrices(self.view)
+        #     print(self.canon_depth.device)
+        #     self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
+        #     self.recon_normal = self.renderer.get_normal_from_depth(self.recon_depth)
+        #     grid_2d_from_canon = self.renderer.get_inv_warped_2d_grid(self.recon_depth)
+        #     self.recon_im = nn.functional.grid_sample(self.canon_im, grid_2d_from_canon, mode='bilinear')
+
+        #     margin = (self.max_depth - self.min_depth) /2
+        #     recon_im_mask = (self.recon_depth < self.max_depth+margin).float()  # invalid border pixels have been clamped at max_depth+margin
+        #     recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]  # both original and flip reconstruction
+        #     recon_im_mask_both = recon_im_mask_both.repeat(2,1,1).unsqueeze(1).detach()
+        #     self.recon_im = self.recon_im * recon_im_mask_both
+
+
+        data = {
+            "canon_albedo": self.canon_albedo,
+            "canon_depth": self.canon_depth,
+            "canon_normal": self.canon_normal,
+            "view": self.view,
+            "canon_light_a": self.canon_light_a,
+            "canon_light_b": self.canon_light_b,
+            "canon_light_d": self.canon_light_d,
+            "img_org": self.input_im,
+            "img_recon": self.recon_im,
+            "img_canon": self.canon_im,
+            "objs": self.objs,
+            "mtls": self.mtls,
+        }
+        save_object(data, f'data_{filename}.pkl')
+
+
+        if self.render_video:
+            self.render_animation()
 
     def render_animation(self):
         print(f"Rendering video animations")
