@@ -176,14 +176,16 @@ class Unsup3D():
         # recon_im_mask_both = recon_im_mask_both.repeat(2,1,1).unsqueeze(1).detach()
         # self.recon_im = self.recon_im * recon_im_mask_both
 
-        recon_im_mask_both = self.recon_im > 0.99
-        # recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]  # both original and flip reconstruction
-        # recon_im_mask_both = recon_im_mask_both.repeat(2,1,1,).unsqueeze(1).detach()
-        recon_im_mask_both = recon_im_mask_both.detach()
+        recon_im_mask_both = (self.recon_im == 1).float() # get all white pixels
+        recon_im_mask_both = recon_im_mask_both[...,0]
+        recon_im_mask_both = recon_im_mask_both.unsqueeze(3).detach()
         self.recon_im = self.recon_im * recon_im_mask_both
 
-        self.recon_im = self.recon_im.view(2*b,c,h,w)
-        recon_im_mask_both = recon_im_mask_both.view(2*b,c,h,w)
+        self.recon_im = self.recon_im.view(2*b,c,w,h)
+        recon_im_mask_both = recon_im_mask_both.view(2*b,1,w,h)
+
+        # self.recon_im = self.recon_im.view(2*b,c,h,w)
+        # recon_im_mask_both = recon_im_mask_both.view(2*b,c,h,w)
 
         ## render symmetry axis
         # canon_sym_axis = torch.zeros(h, w).to(self.input_im.device)
@@ -194,15 +196,15 @@ class Unsup3D():
         # self.input_im_symline = (0.5*self.recon_sym_axis) *green + (1-0.5*self.recon_sym_axis) *self.input_im.repeat(2,1,1,1)
 
         ## loss function
-        # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_l1[:,:1])
-        # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_l1[:,1:])
-        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
-        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
+        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_l1[:,:1])
+        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_l1[:,1:])
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
-        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
-        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
-        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
-        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
+        # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
+        # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
+        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
+        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
