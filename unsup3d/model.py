@@ -139,12 +139,13 @@ class Unsup3D():
 
         ## predict lighting
         canon_light = self.netL(self.input_im).repeat(2,1)  # Bx4
-        self.canon_light_a = canon_light[:,:1] /2+0.5  # ambience term
-        self.canon_light_b = canon_light[:,1:2] /2+0.5  # diffuse term
+        self.canon_light_a = canon_light[:,:1] # ambience term
+        self.canon_light_b = canon_light[:,1:2] # diffuse term
         canon_light_dxy = canon_light[:,2:]
         self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b*2,1).to(self.input_im.device)], 1)
         self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
         self.lighting = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
+        # self.canon_lighting = torch.cat([self.canon_light_a, self.canon_light_b, self.canon_light_d], 1)
 
         ## shading
         # self.canon_normal = self.renderer.get_normal_from_depth(self.canon_depth)
@@ -183,8 +184,6 @@ class Unsup3D():
         # recon_im_mask_both = recon_im_mask_both.unsqueeze(3).detach()
         # self.recon_im = self.recon_im * recon_im_mask_both
 
-        
-
         # self.recon_im = self.recon_im.view(2*b,c,w,h)
         # recon_im_mask_both = recon_im_mask_both.view(2*b,1,w,h)
 
@@ -204,6 +203,12 @@ class Unsup3D():
         # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_l1[:,1:])
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
+
+        print(f"max recon_im: {torch.max(self.recon_im)}")
+        print(f"min recon_im: {torch.min(self.recon_im)}")
+
+        print(f"max input_im: {torch.max(self.input_im)}")
+        print(f"min input_im: {torch.min(self.input_im)}")
 
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])

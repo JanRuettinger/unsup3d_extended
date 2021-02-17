@@ -54,10 +54,12 @@ class Renderer(nn.Module):
 
     def _get_textures(self, tex_im):
         # tex_im is a tensor that contains the non-flipped and flipped albedo_map
-        tex_im = tex_im.permute(0,2,3,1)
+        tex_im = tex_im.permute(0,2,3,1)/2.+0.5
         b, h, w, c = tex_im.shape
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
         # tex_maps = tex_im.permute(0,2,3,1)
+        print(f"max tex_im: {torch.max(tex_im)}")
+        print(f"min tex_im: {torch.min(tex_im)}")
         textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
                                     faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
                                     verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))
@@ -65,13 +67,15 @@ class Renderer(nn.Module):
 
     
     def _get_lights(self, lightning):
-        ambient = lightning["ambient"]
-        diffuse = lightning["diffuse"]
+        ambient = lightning["ambient"]/2.+0.5
+        diffuse = lightning["diffuse"]/2.+0.5
         direction = lightning["direction"]
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
         specular_color=torch.zeros((b,3))
+        print(f"max lightning: {torch.max(ambient)}")
+        print(f"min lightning: {torch.min(ambient)}")
         lights = DirectionalLights(ambient_color=ambient_color, diffuse_color=diffuse_color, specular_color=specular_color, direction=direction)
         return lights.to(self.device)
     
@@ -112,4 +116,6 @@ class Renderer(nn.Module):
         transformed_meshes.textures = textures
 
         images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
+        print(f"max rendered_im: {torch.max(images)}")
+        print(f"min rendered_im: {torch.min(images)}")
         return images
