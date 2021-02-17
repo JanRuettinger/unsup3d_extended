@@ -144,7 +144,7 @@ class Unsup3D():
         canon_light_dxy = canon_light[:,2:]
         self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b*2,1).to(self.input_im.device)], 1)
         self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
-        self.lightning = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
+        self.lighting = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
 
         ## shading
         # self.canon_normal = self.renderer.get_normal_from_depth(self.canon_depth)
@@ -161,7 +161,7 @@ class Unsup3D():
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
-        recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lightning)
+        recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.recon_im = self.recon_im.permute(0,3,1,2)
 

@@ -102,10 +102,10 @@ class Renderer(nn.Module):
         return meshes
 
 
-    def forward(self, meshes, albedo_maps, view, lightning):
+    def forward(self, meshes, albedo_maps, view, lighting):
         # Can both images (flipped and not flipped be rendered in one go?)
         textures = self._get_textures(albedo_maps)
-        lights = self._get_lights(lightning)
+        lights = self._get_lights(lighting)
         transformed_meshes = self._get_transformed_meshes(meshes, view)
 
         # replace texture at mesh
