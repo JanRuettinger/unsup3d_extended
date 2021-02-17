@@ -31,6 +31,7 @@ class Renderer(nn.Module):
         init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
+        # TODO: get K and inv_K from camera directly
         fx = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         fy = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         cx = (self.image_size-1)/2
@@ -58,8 +59,8 @@ class Renderer(nn.Module):
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
         # tex_maps = tex_im.permute(0,2,3,1)
         textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
-                                                 faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
-                                                 verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))
+                                    faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
+                                    verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))
         return textures
 
     
@@ -108,7 +109,7 @@ class Renderer(nn.Module):
         transformed_meshes = self._get_transformed_meshes(meshes, view)
 
         # replace texture at mesh
-        transformed_mesh.textures = textures
+        transformed_meshes.textures = textures
 
         images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
         return images
