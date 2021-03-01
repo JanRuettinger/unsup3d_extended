@@ -26,7 +26,7 @@ class Renderer(nn.Module):
         self.image_size = cfgs.get('image_size', 64)
         self.fov = cfgs.get('fov', 10)
         self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-4)
-        self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(fov=self.fov, device=self.device)
+        self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
         init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
@@ -49,17 +49,16 @@ class Renderer(nn.Module):
         return renderer
 
     def _get_rasterization_settings(self):
-        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=1)
+        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32)
         return raster_settings
 
     def _get_textures(self, tex_im):
         # tex_im is a tensor that contains the non-flipped and flipped albedo_map
         tex_im = tex_im.permute(0,2,3,1)/2.+0.5
+        # print(f"texture max: {torch.max(tex_im)}")
+        # print(f"texture min: {torch.min(tex_im)}")
         b, h, w, c = tex_im.shape
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
-        # tex_maps = tex_im.permute(0,2,3,1)
-        print(f"max tex_im: {torch.max(tex_im)}")
-        print(f"min tex_im: {torch.min(tex_im)}")
         textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
                                     faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
                                     verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))
@@ -71,13 +70,11 @@ class Renderer(nn.Module):
         diffuse = lightning["diffuse"]/2.+0.5
         direction = -lightning["direction"]
         # TODO: DEBUG
-        direction = torch.tensor([[ 0.2878, -0.1185, -0.9503]]*64)
+        # direction = torch.tensor([[ 0.2878, -0.1185, -0.9503]]*64)
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
         specular_color=torch.zeros((b,3))
-        print(f"max lightning: {torch.max(ambient)}")
-        print(f"min lightning: {torch.min(ambient)}")
         lights = DirectionalLights(ambient_color=ambient_color, diffuse_color=diffuse_color, specular_color=specular_color, direction=direction)
         return lights.to(self.device)
     
@@ -118,6 +115,5 @@ class Renderer(nn.Module):
         transformed_meshes.textures = textures
 
         images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
-        print(f"max rendered_im: {torch.max(images)}")
-        print(f"min rendered_im: {torch.min(images)}")
+
         return images
