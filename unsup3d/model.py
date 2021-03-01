@@ -166,6 +166,13 @@ class Unsup3D():
         self.recon_im = recon_im[...,:3]
         self.recon_im = self.recon_im.permute(0,3,1,2)
 
+        # print(f"albedo max: {torch.max(self.canon_albedo)}")
+        # print(f"albedo min: {torch.min(self.canon_albedo)}")
+        # print(f"recon_img max: {torch.max(self.recon_im)}")
+        # print(f"recon_img min: {torch.min(self.recon_im)}")
+        # print(f"input max: {torch.max(self.input_im)}")
+        # print(f"input min: {torch.min(self.input_im)}")
+
         # self.renderer.set_transform_matrices(self.view)
         # self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
         # self.recon_normal = self.renderer.get_normal_from_depth(self.recon_depth)
@@ -204,16 +211,10 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
-        print(f"max recon_im: {torch.max(self.recon_im)}")
-        print(f"min recon_im: {torch.min(self.recon_im)}")
-
-        print(f"max input_im: {torch.max(self.input_im)}")
-        print(f"min input_im: {torch.min(self.input_im)}")
-
-        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
-        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
-        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
-        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
+        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_l1[:,:1])
+        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_l1[:,1:])
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_percl[:,:1])
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_percl[:,1:])
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
@@ -258,8 +259,8 @@ class Unsup3D():
         # input_im_symline = self.input_im_symline[:b0].detach().cpu() /2.+0.5
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
         # canon_im = self.canon_im[:b0].detach().cpu() /2.+0.5
-        recon_im = self.recon_im[:b0].detach().cpu() /2.+0.5
-        recon_im_flip = self.recon_im[b:b+b0].detach().cpu() /2.+0.5
+        recon_im = self.recon_im[:b0].detach().cpu()
+        recon_im_flip = self.recon_im[b:b+b0].detach().cpu()
         canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
         canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5
         canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
