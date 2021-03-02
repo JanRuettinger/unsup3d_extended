@@ -160,11 +160,28 @@ class Unsup3D():
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
 
+
+        # DEBUG
+        # save canon_albedo
+        # add patch to canon_albedo and save it again
+        # save recon structed image 
+        org_albedo = self.canon_albedo[17:18].detach().cpu().numpy() /2.+0.5
+        utils.save_images("/users/janhr/unsup3d_extended/unsup3d", org_albedo, suffix='org_albedo')
+        self.canon_albedo[:,0,40:50,40:50] = torch.ones(1,1,10,10)
+        self.canon_albedo[:,1,40:50,40:50] = torch.zeros(1,1,10,10)
+        self.canon_albedo[:,2,40:50,40:50] = torch.zeros(1,1,10,10)
+        mod_albedo = self.canon_albedo[17:18].detach().cpu().numpy() /2.0+0.5
+        utils.save_images("/users/janhr/unsup3d_extended/unsup3d",mod_albedo, suffix='mod_albedo')
+
+
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.recon_im = self.recon_im.permute(0,3,1,2)
+
+        recon_image = self.recon_im[17:18].detach().cpu().numpy()
+        utils.save_images("/users/janhr/unsup3d_extended/unsup3d",recon_image, suffix='recon_img')
 
         # print(f"albedo max: {torch.max(self.canon_albedo)}")
         # print(f"albedo min: {torch.min(self.canon_albedo)}")
