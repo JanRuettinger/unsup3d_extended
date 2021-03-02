@@ -96,6 +96,8 @@ class Renderer(nn.Module):
     def create_meshes_from_depth_map(self,depth_map):
 
         grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)
+        grid_3d_2 = self.cameras.unproject_points(depth_map.view(-1,self.image_size*self.image_size), world_coordinates=True)
+        print(torch.allclose(xyz_cam, xyz_unproj)) # True
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
         return meshes
 
