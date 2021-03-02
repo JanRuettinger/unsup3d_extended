@@ -6,6 +6,7 @@ import random
 import numpy as np
 import cv2
 import torch
+import pytorch3d
 import zipfile
 
 
@@ -74,14 +75,14 @@ def clean_checkpoint(checkpoint_dir, keep_num=2):
 
 def archive_code(arc_path, filetypes=['.py', '.yml']):
     print(f"Archiving code to {arc_path}")
-    xmkdir(os.path.dirname(arc_path))
-    zipf = zipfile.ZipFile(arc_path, 'w', zipfile.ZIP_DEFLATED)
-    cur_dir = os.getcwd()
-    flist = []
-    for ftype in filetypes:
-        flist.extend(glob.glob(os.path.join(cur_dir, '**', '*'+ftype), recursive=True))
-    [zipf.write(f, arcname=f.replace(cur_dir,'archived_code', 1)) for f in flist]
-    zipf.close()
+    # xmkdir(os.path.dirname(arc_path))
+    # zipf = zipfile.ZipFile(arc_path, 'w', zipfile.ZIP_DEFLATED)
+    # cur_dir = os.getcwd()
+    # flist = []
+    # for ftype in filetypes:
+    #     flist.extend(glob.glob(os.path.join(cur_dir, '**', '*'+ftype), recursive=True))
+    # [zipf.write(f, arcname=f.replace(cur_dir,'archived_code', 1)) for f in flist]
+    # zipf.close()
 
 
 def get_model_device(model):

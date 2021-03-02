@@ -1,35 +1,37 @@
-import torch
+import numpy as np
 import math
-import neural_renderer as nr
-from .utils import *
+import torch
+import torch.nn as nn
+import pytorch3d
+import pytorch3d.loss
+import pytorch3d.renderer
+import pytorch3d.structures
+import pytorch3d.io
+import pytorch3d.transforms
+from pytorch3d.renderer import (
+    RasterizationSettings,
+    MeshRenderer,
+    SoftPhongShader,
+    MeshRasterizer,
+    TexturesUV,
+    DirectionalLights
+)
+from . import utils
 
-
-EPS = 1e-7
-
-
-class Renderer():
+class Renderer(nn.Module):
     def __init__(self, cfgs):
+        super().__init__()
+        self.cfgs = cfgs
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
-        self.min_depth = cfgs.get('min_depth', 0.9)
-        self.max_depth = cfgs.get('max_depth', 1.1)
-        self.rot_center_depth = cfgs.get('rot_center_depth', (self.min_depth+self.max_depth)/2)
         self.fov = cfgs.get('fov', 10)
-        self.tex_cube_size = cfgs.get('tex_cube_size', 2)
-        self.renderer_min_depth = cfgs.get('renderer_min_depth', 0.1)
-        self.renderer_max_depth = cfgs.get('renderer_max_depth', 10.)
-
-        #### camera intrinsics
-        #             (u)   (x)
-        #    d * K^-1 (v) = (y)
-        #             (1)   (z)
-
-        ## renderer for visualization
-        R = [[[1.,0.,0.],
-              [0.,1.,0.],
-              [0.,0.,1.]]]
-        R = torch.FloatTensor(R).to(self.device)
-        t = torch.zeros(1,3, dtype=torch.float32).to(self.device)
+        self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-4)
+        self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
+        self.image_renderer = self._create_image_renderer()
+        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
+        self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
+        self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
+        # TODO: get K and inv_K from camera directly
         fx = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         fy = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         cx = (self.image_size-1)/2
@@ -39,142 +41,79 @@ class Renderer():
              [0., 0., 1.]]
         K = torch.FloatTensor(K).to(self.device)
         self.inv_K = torch.inverse(K).unsqueeze(0)
-        self.K = K.unsqueeze(0)
-        self.renderer = nr.Renderer(camera_mode='projection',
-                                    light_intensity_ambient=1.0,
-                                    light_intensity_directional=0.,
-                                    K=self.K, R=R, t=t,
-                                    near=self.renderer_min_depth, far=self.renderer_max_depth,
-                                    image_size=self.image_size, orig_size=self.image_size,
-                                    fill_back=True,
-                                    background_color=[1,1,1])
 
-    def set_transform_matrices(self, view):
-        self.rot_mat, self.trans_xyz = get_transform_matrices(view)
+    def _create_image_renderer(self):
+        raster_settings = self._get_rasterization_settings()
+        renderer = MeshRenderer(rasterizer=MeshRasterizer(cameras=self.cameras, raster_settings=raster_settings),
+                                shader=SoftPhongShader(device=self.device, cameras=self.cameras))
+        return renderer
 
-    def rotate_pts(self, pts, rot_mat):
-        centroid = torch.FloatTensor([0.,0.,self.rot_center_depth]).to(pts.device).view(1,1,3)
-        pts = pts - centroid  # move to centroid
-        pts = pts.matmul(rot_mat.transpose(2,1))  # rotate
-        pts = pts + centroid  # move back
-        return pts
+    def _get_rasterization_settings(self):
+        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32)
+        return raster_settings
 
-    def translate_pts(self, pts, trans_xyz):
-        return pts + trans_xyz
+    def _get_textures(self, tex_im):
+        # tex_im is a tensor that contains the non-flipped and flipped albedo_map
+        tex_im = tex_im.permute(0,2,3,1)/2.+0.5
+        # print(f"texture max: {torch.max(tex_im)}")
+        # print(f"texture min: {torch.min(tex_im)}")
+        b, h, w, c = tex_im.shape
+        assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
+        textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
+                                    faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
+                                    verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))
+        return textures
 
-    def depth_to_3d_grid(self, depth):
-        b, h, w = depth.shape
-        grid_2d = get_grid(b, h, w, normalize=False).to(depth.device)  # Nxhxwx2
-        depth = depth.unsqueeze(-1)
-        grid_3d = torch.cat((grid_2d, torch.ones_like(depth)), dim=3)
-        grid_3d = grid_3d.matmul(self.inv_K.to(depth.device).transpose(2,1)) * depth
-        return grid_3d
+    
+    def _get_lights(self, lightning):
+        ambient = lightning["ambient"]/2.+0.5
+        diffuse = lightning["diffuse"]/2.+0.5
+        direction = -lightning["direction"]
+        # TODO: DEBUG
+        # direction = torch.tensor([[ 0.2878, -0.1185, -0.9503]]*64)
+        ambient_color = ambient.repeat(1,3)
+        diffuse_color = diffuse.repeat(1,3)
+        b, _  = ambient.shape
+        specular_color=torch.zeros((b,3))
+        lights = DirectionalLights(ambient_color=ambient_color, diffuse_color=diffuse_color, specular_color=specular_color, direction=direction)
+        return lights.to(self.device)
+    
 
-    def grid_3d_to_2d(self, grid_3d):
-        b, h, w, _ = grid_3d.shape
-        grid_2d = grid_3d / grid_3d[...,2:]
-        grid_2d = grid_2d.matmul(self.K.to(grid_3d.device).transpose(2,1))[:,:,:,:2]
-        WH = torch.FloatTensor([w-1, h-1]).to(grid_3d.device).view(1,1,1,2)
-        grid_2d = grid_2d / WH *2.-1.  # normalize to -1~1
-        return grid_2d
+    def _get_transformed_meshes(self, meshes, view):
+        # rotate mesh with pytorch functions
+        # rotate non flipped mesh in one direction and flipped version in other direction
 
-    def get_warped_3d_grid(self, depth):
-        b, h, w = depth.shape
-        grid_3d = self.depth_to_3d_grid(depth).reshape(b,-1,3)
-        grid_3d = self.rotate_pts(grid_3d, self.rot_mat)
-        grid_3d = self.translate_pts(grid_3d, self.trans_xyz)
-        return grid_3d.reshape(b,h,w,3) # return 3d vertices
+        R = pytorch3d.transforms.euler_angles_to_matrix(view[:,:3], convention="XYZ")
+        T = view[:,3:]
 
-    def get_inv_warped_3d_grid(self, depth):
-        b, h, w = depth.shape
-        grid_3d = self.depth_to_3d_grid(depth).reshape(b,-1,3)
-        grid_3d = self.translate_pts(grid_3d, -self.trans_xyz)
-        grid_3d = self.rotate_pts(grid_3d, self.rot_mat.transpose(2,1))
-        return grid_3d.reshape(b,h,w,3) # return 3d vertices
+        object_center = torch.tensor([[0.0,0.0,1.0]])
+        shift_center = pytorch3d.transforms.Translate(-object_center, device=self.device)
+        rotate = pytorch3d.transforms.Rotate(R, device=self.device)
+        shift_back = pytorch3d.transforms.Translate(object_center, device=self.device)
+        translate = pytorch3d.transforms.Translate(T, device=self.device)
+        tsf = shift_center.compose(rotate, shift_back, translate)
 
-    def get_warped_2d_grid(self, depth):
-        b, h, w = depth.shape
-        grid_3d = self.get_warped_3d_grid(depth)
-        grid_2d = self.grid_3d_to_2d(grid_3d)
-        return grid_2d
+        meshes_verts = meshes.verts_padded()
+        new_mesh_verts = tsf.transform_points(meshes_verts)
+        transformed_meshes = meshes.update_padded(new_mesh_verts) 
+        return meshes.to(self.device)
 
-    def get_inv_warped_2d_grid(self, depth):
-        b, h, w = depth.shape
-        grid_3d = self.get_inv_warped_3d_grid(depth)
-        grid_2d = self.grid_3d_to_2d(grid_3d)
-        return grid_2d
+    def create_meshes_from_depth_map(self,depth_map):
 
-    def warp_canon_depth(self, canon_depth):
-        b, h, w = canon_depth.shape
-        grid_3d = self.get_warped_3d_grid(canon_depth).reshape(b,-1,3)
-        faces = get_face_idx(b, h, w).to(canon_depth.device)
-        warped_depth = self.renderer.render_depth(grid_3d, faces)
+        grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)
+        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
+        return meshes
 
-        # allow some margin out of valid range
-        margin = (self.max_depth - self.min_depth) /2
-        warped_depth = warped_depth.clamp(min=self.min_depth-margin, max=self.max_depth+margin)
-        return warped_depth
 
-    def get_normal_from_depth(self, depth):
-        b, h, w = depth.shape
-        grid_3d = self.depth_to_3d_grid(depth)
+    def forward(self, meshes, albedo_maps, view, lighting):
+        # Can both images (flipped and not flipped be rendered in one go?)
+        textures = self._get_textures(albedo_maps)
+        lights = self._get_lights(lighting)
+        transformed_meshes = self._get_transformed_meshes(meshes, view)
 
-        tu = grid_3d[:,1:-1,2:] - grid_3d[:,1:-1,:-2]
-        tv = grid_3d[:,2:,1:-1] - grid_3d[:,:-2,1:-1]
-        normal = tu.cross(tv, dim=3)
+        # replace texture at mesh
+        transformed_meshes.textures = textures
 
-        zero = torch.FloatTensor([0,0,1]).to(depth.device)
-        normal = torch.cat([zero.repeat(b,h-2,1,1), normal, zero.repeat(b,h-2,1,1)], 2)
-        normal = torch.cat([zero.repeat(b,1,w,1), normal, zero.repeat(b,1,w,1)], 1)
-        normal = normal / (((normal**2).sum(3, keepdim=True))**0.5 + EPS)
-        return normal
+        images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
 
-    def render_yaw(self, im, depth, v_before=None, v_after=None, rotations=None, maxr=90, nsample=9, crop_mesh=None):
-        b, c, h, w = im.shape
-        grid_3d = self.depth_to_3d_grid(depth)
-
-        if crop_mesh is not None:
-            top, bottom, left, right = crop_mesh  # pixels from border to be cropped
-            if top > 0:
-                grid_3d[:,:top,:,1] = grid_3d[:,top:top+1,:,1].repeat(1,top,1)
-                grid_3d[:,:top,:,2] = grid_3d[:,top:top+1,:,2].repeat(1,top,1)
-            if bottom > 0:
-                grid_3d[:,-bottom:,:,1] = grid_3d[:,-bottom-1:-bottom,:,1].repeat(1,bottom,1)
-                grid_3d[:,-bottom:,:,2] = grid_3d[:,-bottom-1:-bottom,:,2].repeat(1,bottom,1)
-            if left > 0:
-                grid_3d[:,:,:left,0] = grid_3d[:,:,left:left+1,0].repeat(1,1,left)
-                grid_3d[:,:,:left,2] = grid_3d[:,:,left:left+1,2].repeat(1,1,left)
-            if right > 0:
-                grid_3d[:,:,-right:,0] = grid_3d[:,:,-right-1:-right,0].repeat(1,1,right)
-                grid_3d[:,:,-right:,2] = grid_3d[:,:,-right-1:-right,2].repeat(1,1,right)
-
-        grid_3d = grid_3d.reshape(b,-1,3)
-        im_trans = []
-
-        # inverse warp
-        if v_before is not None:
-            rot_mat, trans_xyz = get_transform_matrices(v_before)
-            grid_3d = self.translate_pts(grid_3d, -trans_xyz)
-            grid_3d = self.rotate_pts(grid_3d, rot_mat.transpose(2,1))
-
-        if rotations is None:
-            rotations = torch.linspace(-math.pi/180*maxr, math.pi/180*maxr, nsample)
-        for i, ri in enumerate(rotations):
-            ri = torch.FloatTensor([0, ri, 0]).to(im.device).view(1,3)
-            rot_mat_i, _ = get_transform_matrices(ri)
-            grid_3d_i = self.rotate_pts(grid_3d, rot_mat_i.repeat(b,1,1))
-
-            if v_after is not None:
-                if len(v_after.shape) == 3:
-                    v_after_i = v_after[i]
-                else:
-                    v_after_i = v_after
-                rot_mat, trans_xyz = get_transform_matrices(v_after_i)
-                grid_3d_i = self.rotate_pts(grid_3d_i, rot_mat)
-                grid_3d_i = self.translate_pts(grid_3d_i, trans_xyz)
-
-            faces = get_face_idx(b, h, w).to(im.device)
-            textures = get_textures_from_im(im, tx_size=self.tex_cube_size)
-            warped_images = self.renderer.render_rgb(grid_3d_i, faces, textures).clamp(min=-1., max=1.)
-            im_trans += [warped_images]
-        return torch.stack(im_trans, 1)  # b x t x c x h x w
+        return images
