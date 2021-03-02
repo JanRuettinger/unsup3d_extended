@@ -55,8 +55,6 @@ class Renderer(nn.Module):
     def _get_textures(self, tex_im):
         # tex_im is a tensor that contains the non-flipped and flipped albedo_map
         tex_im = tex_im.permute(0,2,3,1)/2.+0.5
-        # print(f"texture max: {torch.max(tex_im)}")
-        # print(f"texture min: {torch.min(tex_im)}")
         b, h, w, c = tex_im.shape
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
         textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
