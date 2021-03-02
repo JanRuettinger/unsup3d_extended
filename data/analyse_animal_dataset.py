@@ -6,7 +6,7 @@ from pathlib import Path
 
 # load images from 
 
-root_path = "/scratch/shared/beegfs/janhr/data/unsup3d_extended/animals_original/"
+root_path = "/scratch/local/ssd/janhr/data/animals_original"
 
 data = [] # create list of dicts which will later be transformed to a pandas dataframe
 pathlist = Path(root_path).glob('**/*.jpg')
@@ -23,7 +23,7 @@ for path in pathlist:
     path_in_str = str(path)
     class_name = path.parent.name
     image_name = path.stem
-    print(class_name)
+#     print(class_name)
     img = cv2.imread(path_in_str)
     height, width, channels = img.shape
     img_dict = {'image_name': image_name, 'class': class_name, 'width': width, 'height': height,}
