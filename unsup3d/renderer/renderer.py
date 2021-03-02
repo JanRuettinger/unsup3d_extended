@@ -39,8 +39,10 @@ class Renderer(nn.Module):
         K = [[fx, 0., cx],
              [0., fy, cy],
              [0., 0., 1.]]
-        K = torch.FloatTensor(K).to(self.device)
-        self.inv_K = torch.inverse(K).unsqueeze(0)
+        self.K = torch.FloatTensor(K).to(self.device)
+        self.inv_K = torch.inverse(self.K).unsqueeze(0)
+        self.K2 = self.cameras.get_projection_transform().get_matrix()
+        self.inv_K2 = torch.inverse(self.K2).unsqueeze(0)
 
     def _create_image_renderer(self):
         raster_settings = self._get_rasterization_settings()
@@ -96,8 +98,10 @@ class Renderer(nn.Module):
     def create_meshes_from_depth_map(self,depth_map):
 
         grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)
-        grid_3d_2 = self.cameras.unproject_points(depth_map.view(-1,self.image_size*self.image_size), world_coordinates=True)
-        print(torch.allclose(xyz_cam, xyz_unproj)) # True
+        # transform depth_map
+        depth_points = utils.depth_map_to_depth_points(depth_map)
+        # grid_3d_2 = self.cameras.unproject_points(depth_points.to(self.device), world_coordinates=False)
+        print(torch.allclose(grid_3d, grid_3d_2)) # True
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
         return meshes
 

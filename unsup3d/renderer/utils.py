@@ -44,3 +44,15 @@ def depth_to_3d_grid(depth, inv_K):
     grid_3d = torch.cat((grid_2d, torch.ones_like(depth)), dim=3)
     grid_3d = grid_3d.matmul(inv_K.transpose(2,1)) * depth
     return grid_3d
+
+def depth_map_to_depth_points(depthmap):
+    b, h, w = depthmap.shape
+    grid = torch.zeros(h*w,3)
+    for i in range(h):
+        for j in range(w):
+            grid[i*h+j] = torch.tensor([i,j,1])
+
+    depth_points = torch.stack([grid]*b)
+    depthmap_1d = depthmap.view(b,h*w)
+    depth_points[:,:,2] = depthmap_1d[:,:] 
+    return depth_points
