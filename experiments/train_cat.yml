@@ -2,20 +2,20 @@
 ## trainer
 run_train: true
 num_epochs: 200
-batch_size: 64
+batch_size: 16
 checkpoint_dir: results/cat
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
-resume: true
+resume: false
 use_logger: true
-log_freq: 500
+log_freq: 300
 
 ## dataloader
 num_workers: 4
 image_size: 64
 crop: 170
 load_gt_depth: false
-train_val_data_dir: data/cat_combined
+train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
 
 ## model
 model_name: unsup3d_cat
@@ -33,3 +33,4 @@ lr: 0.0001
 rot_center_depth: 1.0
 fov: 10  # in degrees
 tex_cube_size: 2
+init_shape_obj_path: /users/janhr/unsup3d_extended/unsup3d/renderer/x_flipped.obj
