@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 200
-batch_size: 64
+batch_size: 32
 checkpoint_dir: results/animals
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
@@ -32,3 +32,4 @@ lr: 0.0001
 rot_center_depth: 1.0
 fov: 10  # in degrees
 tex_cube_size: 2
+init_shape_obj_path: /users/janhr/unsup3d_extended/unsup3d/renderer/init_shape.obj
