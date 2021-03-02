@@ -1,6 +1,8 @@
 __pycache__
-data/*/
+data/
 pretrained/*/
 results
 neural_renderer
 *.zip
+.ipynb_checkpoints/
+.vscode/
