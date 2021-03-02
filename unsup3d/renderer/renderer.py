@@ -67,8 +67,6 @@ class Renderer(nn.Module):
         ambient = lightning["ambient"]/2.+0.5
         diffuse = lightning["diffuse"]/2.+0.5
         direction = -lightning["direction"]
-        # TODO: DEBUG
-        # direction = torch.tensor([[ 0.2878, -0.1185, -0.9503]]*64)
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
