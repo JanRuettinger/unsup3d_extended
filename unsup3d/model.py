@@ -11,12 +11,34 @@ from .renderer import Renderer
 EPS = 1e-7
 
 
+def get_printer(msg):
+    """This function returns a printer function, that prints information about a  tensor's
+    gradient. Used by register_hook in the backward pass.
+    """
+    def printer(tensor):
+        if tensor.nelement() == 1:
+            print(f"{msg} {tensor}")
+        else:
+            print(f"{msg} shape: {tensor.shape}"
+                  f" max: {tensor.max()} min: {tensor.min()}"
+                  f" mean: {tensor.mean()}")
+    return printer
+
+
+def register_hook(tensor, msg):
+    """Utility function to call retain_grad and Pytorch's register_hook
+    in a single line
+    """
+    tensor.retain_grad()
+    tensor.register_hook(get_printer(msg))
+
+
 class Unsup3D():
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
-        # self.depthmap_size = cfgs.get('depthmap_size', 64)
+        self.depthmap_size = cfgs.get('depthmap_size', 64)
         self.min_depth = cfgs.get('min_depth', 0.9)
         self.max_depth = cfgs.get('max_depth', 1.1)
         self.border_depth = cfgs.get('border_depth', (0.7*self.max_depth + 0.3*self.min_depth))
@@ -174,6 +196,8 @@ class Unsup3D():
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
 
+        register_hook(self.view, "view")
+        register_hook(self.canon_albedo, "canon_albedo")
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces

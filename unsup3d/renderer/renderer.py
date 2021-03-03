@@ -18,6 +18,29 @@ from pytorch3d.renderer import (
 )
 from . import utils
 
+def get_printer(msg):
+    """This function returns a printer function, that prints information about a  tensor's
+    gradient. Used by register_hook in the backward pass.
+    """
+    def printer(tensor):
+        print("Was geht?")
+        if tensor.nelement() == 1:
+            print(f"{msg} {tensor}")
+        else:
+            print(f"{msg} shape: {tensor.shape}"
+                  f" max: {tensor.max()} min: {tensor.min()}"
+                  f" mean: {tensor.mean()}")
+    return printer
+
+
+def register_hook(tensor, msg):
+    """Utility function to call retain_grad and Pytorch's register_hook
+    in a single line
+    """
+    tensor.retain_grad()
+    tensor.register_hook(get_printer(msg))
+
+
 class Renderer(nn.Module):
     def __init__(self, cfgs):
         super().__init__()
@@ -48,7 +71,7 @@ class Renderer(nn.Module):
         return renderer
 
     def _get_rasterization_settings(self):
-        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32)
+        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32, perspective_correct=False)
         return raster_settings
 
     def _get_textures(self, tex_im):
@@ -91,6 +114,9 @@ class Renderer(nn.Module):
         meshes_verts = meshes.verts_padded()
         new_mesh_verts = tsf.transform_points(meshes_verts)
         transformed_meshes = meshes.update_padded(new_mesh_verts) 
+        
+        register_hook(meshes_verts, "Meshes")
+
         return meshes.to(self.device)
 
     def create_meshes_from_depth_map(self,depth_map):
