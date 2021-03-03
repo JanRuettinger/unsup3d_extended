@@ -16,6 +16,7 @@ class Unsup3D():
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
+        # self.depthmap_size = cfgs.get('depthmap_size', 64)
         self.min_depth = cfgs.get('min_depth', 0.9)
         self.max_depth = cfgs.get('max_depth', 1.1)
         self.border_depth = cfgs.get('border_depth', (0.7*self.max_depth + 0.3*self.min_depth))
@@ -28,6 +29,18 @@ class Unsup3D():
         self.lr = cfgs.get('lr', 1e-4)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.renderer = Renderer(cfgs)
+
+        # ## networks and optimizers
+        # self.netD = networks.EDDeconv(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        # self.netA = networks.EDDeconv(cin=3, cout=3, nf=64, zdim=256)
+        # self.netL = networks.Encoder(cin=3, cout=4, nf=32)
+        # self.netV = networks.Encoder(cin=3, cout=6, nf=32)
+        # self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+        # self.network_names = [k for k in vars(self) if 'net' in k]
+        # self.make_optimizer = lambda model: torch.optim.Adam(
+        #     filter(lambda p: p.requires_grad, model.parameters()),
+        #     lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
+
 
         ## networks and optimizers
         self.netD = networks.EDDeconv(cin=3, cout=1, nf=64, zdim=256, activation=None)
@@ -115,7 +128,8 @@ class Unsup3D():
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
-        self.input_im = input.to(self.device) *2.-1.
+        # self.input_im = input.to(self.device) *2.-1.
+        self.input_im = input.to(self.device)
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
@@ -166,6 +180,7 @@ class Unsup3D():
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.recon_im = self.recon_im.permute(0,3,1,2)
+        # self.recon_im = self.recon_im*2. -1
 
         # print(f"albedo max: {torch.max(self.canon_albedo)}")
         # print(f"albedo min: {torch.min(self.canon_albedo)}")
@@ -212,10 +227,10 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
-        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_l1[:,:1])
-        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_l1[:,1:])
-        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_percl[:,:1])
-        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im/2.+0.5, conf_sigma=self.conf_sigma_percl[:,1:])
+        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
+        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
@@ -360,8 +375,8 @@ class Unsup3D():
         # input_im_symline = self.input_im_symline.detach().cpu().numpy() /2.+0.5
         canon_albedo = self.canon_albedo[:b].detach().cpu().numpy() /2+0.5
         # canon_im = self.canon_im[:b].clamp(-1,1).detach().cpu().numpy() /2+0.5
-        recon_im = self.recon_im[:b].clamp(-1,1).detach().cpu().numpy() /2+0.5
-        recon_im_flip = self.recon_im[b:].clamp(-1,1).detach().cpu().numpy() /2+0.5
+        recon_im = self.recon_im[:b].clamp(-1,1).detach().cpu().numpy() 
+        recon_im_flip = self.recon_im[b:].clamp(-1,1).detach().cpu().numpy() 
         canon_depth = ((self.canon_depth[:b] -self.min_depth)/(self.max_depth-self.min_depth)).clamp(0,1).detach().cpu().unsqueeze(1).numpy()
         # recon_depth = ((self.recon_depth[:b] -self.min_depth)/(self.max_depth-self.min_depth)).clamp(0,1).detach().cpu().unsqueeze(1).numpy()
         # canon_diffuse_shading = self.canon_diffuse_shading[:b].detach().cpu().numpy()

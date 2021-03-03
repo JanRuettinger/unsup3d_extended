@@ -31,7 +31,6 @@ class Renderer(nn.Module):
         init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
-        # TODO: get K and inv_K from camera directly
         fx = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         fy = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
         cx = (self.image_size-1)/2
@@ -63,9 +62,10 @@ class Renderer(nn.Module):
         return textures
 
     
-    def _get_lights(self, lightning):
-        ambient = lightning["ambient"]/2.+0.5
-        diffuse = lightning["diffuse"]/2.+0.5
+    def _get_lights(self, lighting):
+        ambient = lighting["ambient"]/2.+0.5
+        diffuse = lighting["diffuse"]/2.+0.5
+        direction = lighting["direction"]
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
@@ -94,16 +94,12 @@ class Renderer(nn.Module):
         return meshes.to(self.device)
 
     def create_meshes_from_depth_map(self,depth_map):
-
         grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)
-        grid_3d_2 = self.cameras.unproject_points(depth_map.view(-1,self.image_size*self.image_size), world_coordinates=True)
-        print(torch.allclose(xyz_cam, xyz_unproj)) # True
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
         return meshes
 
 
     def forward(self, meshes, albedo_maps, view, lighting):
-        # Can both images (flipped and not flipped be rendered in one go?)
         textures = self._get_textures(albedo_maps)
         lights = self._get_lights(lighting)
         transformed_meshes = self._get_transformed_meshes(meshes, view)
