@@ -196,8 +196,17 @@ class Unsup3D():
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
 
-        register_hook(self.view, "view")
-        register_hook(self.canon_albedo, "canon_albedo")
+        if self.view.requires_grad:
+            register_hook(self.view, "view")
+
+        if self.canon_depth_raw.requires_grad:
+            register_hook(self.canon_depth_raw, "depth_map")
+
+
+        netV_params = list(self.netV.parameters())
+        print(torch.max(netV_params[0].data))
+        print(torch.min(netV_params[0].data))
+        # register_hook(self.canon_albedo, "canon_albedo")
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces

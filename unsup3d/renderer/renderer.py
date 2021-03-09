@@ -115,9 +115,7 @@ class Renderer(nn.Module):
         new_mesh_verts = tsf.transform_points(meshes_verts)
         transformed_meshes = meshes.update_padded(new_mesh_verts) 
         
-        register_hook(meshes_verts, "Meshes")
-
-        return meshes.to(self.device)
+        return transformed_meshes.to(self.device)
 
     def create_meshes_from_depth_map(self,depth_map):
         grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)

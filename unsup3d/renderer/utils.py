@@ -34,11 +34,15 @@ def create_meshes_from_grid_3d(grid_3d, device):
     vertices = grid_3d 
     b, h, w, _ = vertices.shape
     vertices_center = torch.nn.functional.avg_pool2d(vertices.permute(0,3,1,2), 2, stride=1).permute(0,2,3,1)
-    vertices_test = torch.cat([vertices.view(b,h*w,3), vertices_center.view(b,(h-1)*(w-1),3)], 1)
+    vertices = torch.cat([vertices.view(b,h*w,3), vertices_center.view(b,(h-1)*(w-1),3)], 1)
 
-    register_hook(vertices_test, "vertices_test")
-    register_hook(vertices_center, "vertices_center")
-    register_hook(vertices, "vertices")
+    tmp_vertices = torch.zeros_like(vertices).detach()
+
+
+    if vertices.requires_grad:
+        register_hook(vertices, "vertices")
+    # register_hook(vertices_center, "vertices_center")
+    # register_hook(vertices, "vertices")
 
     ## Faces
     idx_map = torch.arange(h*w).reshape(h,w)
@@ -49,8 +53,12 @@ def create_meshes_from_grid_3d(grid_3d, device):
     faces4 = torch.stack([idx_map[:h-1,1:], idx_map[:h-1,:w-1], idx_map_center+h*w], -1).reshape(-1,3).repeat(b,1,1).int()  # Bx((H-1)*(W-1))x4
     faces = torch.cat([faces1, faces2, faces3, faces4], 1)
 
-    meshes = pytorch3d.structures.Meshes(verts=vertices_test.to(device), faces=faces.to(device))
-    return meshes
+    mesh_debug = pytorch3d.structures.Meshes(verts=tmp_vertices, faces=faces).to(device)
+    # mesh_debug = mesh_debug.offset_verts(vertices_test)
+    mesh_debug = mesh_debug.update_padded(vertices)
+
+    # meshes = pytorch3d.structures.Meshes(verts=vertices_test.to(device), faces=faces.to(device))
+    return mesh_debug
 
 def get_grid(b, H, W, normalize=True):
     if normalize:
