@@ -37,8 +37,8 @@ class Unsup3D():
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
-        self.image_size = cfgs.get('image_size', 64)
-        self.depthmap_size = cfgs.get('depthmap_size', 64)
+        # self.image_size = cfgs.get('image_size', 64)
+        # self.depthmap_size = cfgs.get('depthmap_size', 32)
         self.min_depth = cfgs.get('min_depth', 0.9)
         self.max_depth = cfgs.get('max_depth', 1.1)
         self.border_depth = cfgs.get('border_depth', (0.7*self.max_depth + 0.3*self.min_depth))
@@ -65,8 +65,8 @@ class Unsup3D():
 
 
         ## networks and optimizers
-        self.netD = networks.EDDeconv(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        self.netA = networks.EDDeconv(cin=3, cout=3, nf=64, zdim=256)
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -161,7 +161,8 @@ class Unsup3D():
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
         ## clamp border depth
-        depth_border = torch.zeros(1,h,w-4).to(self.input_im.device)
+        _, h_depth, w_depth = self.canon_depth_raw.shape 
+        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
         depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
@@ -196,16 +197,16 @@ class Unsup3D():
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
 
-        if self.view.requires_grad:
-            register_hook(self.view, "view")
+        # if self.view.requires_grad:
+        #     register_hook(self.view, "view")
 
-        if self.canon_depth_raw.requires_grad:
-            register_hook(self.canon_depth_raw, "depth_map")
+        # if self.canon_depth_raw.requires_grad:
+        #     register_hook(self.canon_depth_raw, "depth_map")
 
 
-        netV_params = list(self.netV.parameters())
-        print(torch.max(netV_params[0].data))
-        print(torch.min(netV_params[0].data))
+        # netV_params = list(self.netV.parameters())
+        # print(torch.max(netV_params[0].data))
+        # print(torch.min(netV_params[0].data))
         # register_hook(self.canon_albedo, "canon_albedo")
 
         ## reconstruct input view
