@@ -115,14 +115,14 @@ class Trainer():
             metrics = self.run_epoch(self.train_loader, epoch)
             self.metrics_trace.append("train", metrics)
 
-            # with torch.no_grad():
-            #     metrics = self.run_epoch(self.val_loader, epoch, is_validation=True)
-            #     self.metrics_trace.append("val", metrics)
+            with torch.no_grad():
+                metrics = self.run_epoch(self.val_loader, epoch, is_validation=True)
+                self.metrics_trace.append("val", metrics)
 
-            # if (epoch+1) % self.save_checkpoint_freq == 0:
-            #     self.save_checkpoint(epoch+1, optim=True)
-            # self.metrics_trace.plot(pdf_path=os.path.join(self.checkpoint_dir, 'metrics.pdf'))
-            # self.metrics_trace.save(os.path.join(self.checkpoint_dir, 'metrics.json'))
+            if (epoch+1) % self.save_checkpoint_freq == 0:
+                self.save_checkpoint(epoch+1, optim=True)
+            self.metrics_trace.plot(pdf_path=os.path.join(self.checkpoint_dir, 'metrics.pdf'))
+            self.metrics_trace.save(os.path.join(self.checkpoint_dir, 'metrics.json'))
 
         print(f"Training completed after {epoch+1} epochs.")
 
