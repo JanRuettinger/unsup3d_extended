@@ -68,15 +68,15 @@ class DepthMapNet(nn.Module):
             nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True),
             nn.Conv2d(nf*2, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16*2, nf),
+            nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32 => DEBUG
             nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
-            nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
-            nn.GroupNorm(16, nf),
-            nn.ReLU(inplace=True),
+            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            # nn.GroupNorm(16, nf),
+            # nn.ReLU(inplace=True),
             nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
         if activation is not None:
             network += [activation()]
