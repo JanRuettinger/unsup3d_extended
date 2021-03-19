@@ -2,8 +2,8 @@
 ## trainer
 run_train: true
 num_epochs: 200
-batch_size: 16
-checkpoint_dir: results/cat/32x32_depthmap
+batch_size: 9
+checkpoint_dir: results/cat/32x32_depthmap_128x128_albedo
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -12,7 +12,7 @@ log_freq: 20
 
 ## dataloader
 num_workers: 4
-image_size: 64
+image_size: 128
 depthmap_size: 32
 crop: 170
 load_gt_depth: false
