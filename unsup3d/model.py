@@ -37,8 +37,8 @@ class Unsup3D():
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
-        # self.image_size = cfgs.get('image_size', 64)
-        # self.depthmap_size = cfgs.get('depthmap_size', 32)
+        self.image_size = cfgs.get('image_size', 64)
+        self.depthmap_size = cfgs.get('depthmap_size', 32)
         self.min_depth = cfgs.get('min_depth', 0.9)
         self.max_depth = cfgs.get('max_depth', 1.1)
         self.border_depth = cfgs.get('border_depth', (0.7*self.max_depth + 0.3*self.min_depth))
@@ -52,7 +52,7 @@ class Unsup3D():
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.renderer = Renderer(cfgs)
 
-        # ## networks and optimizers
+        ## networks and optimizers
         # self.netD = networks.EDDeconv(cin=3, cout=1, nf=64, zdim=256, activation=None)
         # self.netA = networks.EDDeconv(cin=3, cout=3, nf=64, zdim=256)
         # self.netL = networks.Encoder(cin=3, cout=4, nf=32)
@@ -197,8 +197,8 @@ class Unsup3D():
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
 
-        # if self.view.requires_grad:
-        #     register_hook(self.view, "view")
+        if self.view.requires_grad:
+            register_hook(self.view, "view")
 
         # if self.canon_depth_raw.requires_grad:
         #     register_hook(self.canon_depth_raw, "depth_map")
@@ -261,10 +261,15 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
-        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
-        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
-        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
-        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
+        # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
+        # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
+        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
+        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
+
+        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=None)
+        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=None)
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)

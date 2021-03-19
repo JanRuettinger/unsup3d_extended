@@ -47,6 +47,7 @@ class Renderer(nn.Module):
         self.cfgs = cfgs
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
+        self.depthmap_size = cfgs.get('depthmap_size', 32)
         self.fov = cfgs.get('fov', 10)
         self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-4)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
@@ -54,10 +55,10 @@ class Renderer(nn.Module):
         init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
-        fx = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
-        fy = (self.image_size-1)/2/(math.tan(self.fov/2 *math.pi/180))
-        cx = (self.image_size-1)/2
-        cy = (self.image_size-1)/2
+        fx = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
+        fy = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
+        cx = (self.depthmap_size)/2
+        cy = (self.depthmap_size)/2
         K = [[fx, 0., cx],
              [0., fy, cy],
              [0., 0., 1.]]
@@ -88,7 +89,7 @@ class Renderer(nn.Module):
     def _get_lights(self, lighting):
         ambient = lighting["ambient"]/2.+0.5
         diffuse = lighting["diffuse"]/2.+0.5
-        direction = lighting["direction"]
+        direction = -lighting["direction"]
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
