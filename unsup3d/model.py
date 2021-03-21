@@ -310,7 +310,7 @@ class Unsup3D():
         #     canon_im_rotate = self.renderer.render_yaw(self.canon_im[:b0], self.canon_depth[:b0], v_before=v0, maxr=90).detach().cpu() /2.+0.5  # (B,T,C,H,W)
         #     canon_normal_rotate = self.renderer.render_yaw(self.canon_normal[:b0].permute(0,3,1,2), self.canon_depth[:b0], v_before=v0, maxr=90).detach().cpu() /2.+0.5  # (B,T,C,H,W)
 
-        input_im = self.input_im[:b0].detach().cpu().numpy() /2+0.5
+        input_im = self.input_im[:b0].detach().cpu() 
         # input_im_symline = self.input_im_symline[:b0].detach().cpu() /2.+0.5
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
         # canon_im = self.canon_im[:b0].detach().cpu() /2.+0.5
@@ -354,6 +354,7 @@ class Unsup3D():
             im_grid = torchvision.utils.make_grid(im, nrow=nrow)
             logger.add_image(label, im_grid, iter)
 
+        log_grid_image('Image/input_image', input_im)
         # log_grid_image('Image/input_image_symline', input_im_symline)
         log_grid_image('Image/canonical_albedo', canon_albedo)
         # log_grid_image('Image/canonical_image', canon_im)
