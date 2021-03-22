@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 200
 batch_size: 16
-checkpoint_dir: results/cat/32x32_depth_64x64_albedo
+checkpoint_dir: results/cat/64x64_depth_64x64_albedo
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -13,7 +13,7 @@ log_freq: 20
 ## dataloader
 num_workers: 4
 image_size: 64
-depthmap_size: 32
+depthmap_size: 64
 crop: 170
 load_gt_depth: false
 train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
@@ -34,4 +34,4 @@ lr: 0.0001
 rot_center_depth: 1.0
 fov: 10  # in degrees
 tex_cube_size: 2
-init_shape_obj_path: /users/janhr/unsup3d_extended/unsup3d/renderer/init_shape.obj
+init_shape_obj_path: /users/janhr/unsup3d_extended/unsup3d/renderer/32x32.obj

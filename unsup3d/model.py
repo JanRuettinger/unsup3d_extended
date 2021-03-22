@@ -216,12 +216,12 @@ class Unsup3D():
         self.recon_im = self.recon_im.permute(0,3,1,2)
         # self.recon_im = self.recon_im*2. -1
 
-        # print(f"albedo max: {torch.max(self.canon_albedo)}")
-        # print(f"albedo min: {torch.min(self.canon_albedo)}")
-        # print(f"recon_img max: {torch.max(self.recon_im)}")
-        # print(f"recon_img min: {torch.min(self.recon_im)}")
-        # print(f"input max: {torch.max(self.input_im)}")
-        # print(f"input min: {torch.min(self.input_im)}")
+        print(f"albedo max: {torch.max(self.canon_albedo)}")
+        print(f"albedo min: {torch.min(self.canon_albedo)}")
+        print(f"recon_img max: {torch.max(self.recon_im)}")
+        print(f"recon_img min: {torch.min(self.recon_im)}")
+        print(f"input max: {torch.max(self.input_im)}")
+        print(f"input min: {torch.min(self.input_im)}")
 
         # self.renderer.set_transform_matrices(self.view)
         # self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
