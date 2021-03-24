@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 200
 batch_size: 16
-checkpoint_dir: results/cat/32x32_depth_64x64_clean_albedo/trial_depthmap
+checkpoint_dir: results/cat/32x32_depth_64x64_clean_albedo/pretrained_albedo
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false

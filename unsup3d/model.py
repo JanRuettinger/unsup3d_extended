@@ -54,20 +54,8 @@ class Unsup3D():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        # self.netD = networks.EDDeconv(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        # self.netA = networks.EDDeconv(cin=3, cout=3, nf=64, zdim=256)
-        # self.netL = networks.Encoder(cin=3, cout=4, nf=32)
-        # self.netV = networks.Encoder(cin=3, cout=6, nf=32)
-        # self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
-        # self.network_names = [k for k in vars(self) if 'net' in k]
-        # self.make_optimizer = lambda model: torch.optim.Adam(
-        #     filter(lambda p: p.requires_grad, model.parameters()),
-        #     lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
-
-
-        ## networks and optimizers
-        # self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        # self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -159,11 +147,13 @@ class Unsup3D():
 
         ## predict canonical depth
         # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        # self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        # self.canon_depth = self.canon_depth.tanh()
+        # self.canon_depth = self.depth_rescaler(self.canon_depth)
+
         depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
         self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
-        # self.canon_depth_raw = self.canon_depth_raw.flip(1) 
-
-
+        self.canon_depth_raw = self.canon_depth_raw.flip(1)
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
@@ -176,7 +166,12 @@ class Unsup3D():
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+
+        # load perfect canon_albedo
+        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
+        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
         # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
@@ -215,13 +210,7 @@ class Unsup3D():
         # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)
 
 
-        # load perfect canon_albedo
-        # canon_albedo_loaded = np.load("/users/janhr/unsup3d_extended/unsup3d/canon_albedo.npy")
-        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
-        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
-        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
-        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
-        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+
 
 
         ## reconstruct input view
