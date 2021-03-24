@@ -166,13 +166,13 @@ class Unsup3D():
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         # load perfect canon_albedo
-        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
-        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
-        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
+        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
@@ -225,10 +225,26 @@ class Unsup3D():
         white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
         new_light = { "ambient": -1*torch.ones_like(self.canon_light_a), "diffuse": torch.ones_like(self.canon_light_b), "direction": self.canon_light_d}
         self.shading_img = self.renderer(self.meshes, white_albedo, self.view, new_light)
-        self.shading_img = self.shading_img[...,:3]
-        self.shading_img = self.shading_img.sum(3).clamp(min=0)
+        self.shading_img = self.shading_img[...,0]
+        self.shading_img = self.shading_img.clamp(min=0)
         self.shading_img = self.shading_img.unsqueeze(3)
         self.shading_img = self.shading_img.permute(0,3,1,2)
+
+
+        # side view of shaded image
+        side_view = self.view.detach().clone()
+        side_view[:,0] = 0 # rotation around x axis
+        side_view[:,1] = -np.pi/2 # rotation around y axis
+        side_view[:,2] = 0# rotation around z axis
+        side_view[:,3] = 0 #x
+        side_view[:,4] = 0 #y
+        side_view[:,5] = 0 #z
+        self.shading_img_side_view = self.renderer(self.meshes, white_albedo, side_view, new_light)
+        self.shading_img_side_view = self.shading_img_side_view[...,0]
+        self.shading_img_side_view = self.shading_img_side_view.clamp(min=0)
+        self.shading_img_side_view = self.shading_img_side_view.unsqueeze(3)
+        self.shading_img_side_view = self.shading_img_side_view.permute(0,3,1,2)
+
 
         print(f"albedo max: {torch.max(self.canon_albedo)}")
         print(f"albedo min: {torch.min(self.canon_albedo)}")
@@ -335,6 +351,7 @@ class Unsup3D():
         #     canon_normal_rotate = self.renderer.render_yaw(self.canon_normal[:b0].permute(0,3,1,2), self.canon_depth[:b0], v_before=v0, maxr=90).detach().cpu() /2.+0.5  # (B,T,C,H,W)
 
         shading_im = self.shading_img[:b0].detach().cpu()
+        shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
         input_im = self.input_im[:b0].detach().cpu() 
         # input_im_symline = self.input_im_symline[:b0].detach().cpu() /2.+0.5
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
@@ -390,6 +407,7 @@ class Unsup3D():
         log_grid_image('Depth/canonical_depth_raw', canon_depth_raw)
         log_grid_image('Depth/canonical_depth', canon_depth)
         log_grid_image('Depth/diffuse_shading', shading_im)
+        log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
         # log_grid_image('Depth/recon_depth', recon_depth)
         # log_grid_image('Depth/canonical_diffuse_shading', canon_diffuse_shading)
         # log_grid_image('Depth/canonical_normal', canon_normal)
