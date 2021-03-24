@@ -49,6 +49,8 @@ class DepthMapNet(nn.Module):
             nn.ReLU(inplace=True)]
         ## upsampling
         network += [
+
+            # 64x64 depthmap
             nn.ConvTranspose2d(zdim, nf*8, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
             nn.ReLU(inplace=True),
             nn.Conv2d(nf*8, nf*8, kernel_size=3, stride=1, padding=1, bias=False),
@@ -62,10 +64,16 @@ class DepthMapNet(nn.Module):
             nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
             nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True),
-            nn.Conv2d(nf*2, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16*2, nf),
+            nn.Conv2d(nf*2, nf*2, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32 => DEBUG
+            nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
+            nn.GroupNorm(16, nf),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.GroupNorm(16, nf),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
             nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
@@ -73,6 +81,33 @@ class DepthMapNet(nn.Module):
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
             nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
+
+
+            # 32x32 depthmap
+            # nn.ConvTranspose2d(zdim, nf*8, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf*8, nf*8, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.ReLU(inplace=True),
+            # nn.ConvTranspose2d(nf*8, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 4x4 -> 8x8
+            # nn.GroupNorm(16*4, nf*4),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf*4, nf*4, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.GroupNorm(16*4, nf*4),
+            # nn.ReLU(inplace=True),
+            # nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
+            # nn.GroupNorm(16*2, nf*2),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf*2, nf, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.GroupNorm(16*2, nf),
+            # nn.ReLU(inplace=True),
+            # nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32 => DEBUG
+            # nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.GroupNorm(16, nf),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            # nn.GroupNorm(16, nf),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
         if activation is not None:
             network += [activation()]
         self.network = nn.Sequential(*network)

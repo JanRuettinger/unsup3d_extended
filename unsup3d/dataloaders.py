@@ -178,7 +178,7 @@ def get_paired_image_loader(data_dir, is_validation=False,
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=not is_validation,
+        # shuffle=not is_validation,
         num_workers=num_workers,
         pin_memory=True
     )

@@ -89,7 +89,7 @@ class Renderer(nn.Module):
     def _get_lights(self, lighting):
         ambient = lighting["ambient"]/2.+0.5
         diffuse = lighting["diffuse"]/2.+0.5
-        direction = -lighting["direction"]
+        direction = lighting["direction"]
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
@@ -115,6 +115,8 @@ class Renderer(nn.Module):
         meshes_verts = meshes.verts_padded()
         new_mesh_verts = tsf.transform_points(meshes_verts)
         transformed_meshes = meshes.update_padded(new_mesh_verts) 
+
+
         
         return transformed_meshes.to(self.device)
 

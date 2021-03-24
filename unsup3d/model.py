@@ -3,6 +3,7 @@ import math
 import glob
 import torch
 import torch.nn as nn
+import numpy as np
 import torchvision
 from . import networks
 from . import utils
@@ -65,8 +66,8 @@ class Unsup3D():
 
 
         ## networks and optimizers
-        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        # self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        # self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -146,16 +147,23 @@ class Unsup3D():
         for optim_name in self.optimizer_names:
             getattr(self, optim_name).step()
 
-    def forward(self, input):
+    def forward(self, input,iter):
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
         # self.input_im = input.to(self.device) *2.-1.
-        self.input_im = input.to(self.device)
+        # self.input_im = input.to(self.device)
+        input_im_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/input_imgs/input_im_{iter}.npy')
+        self.input_im = torch.from_numpy(input_im_loaded).to(device=self.device) /2 +0.5
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
-        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
+        self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
+        # self.canon_depth_raw = self.canon_depth_raw.flip(1) 
+
+
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
@@ -168,8 +176,8 @@ class Unsup3D():
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
@@ -179,16 +187,10 @@ class Unsup3D():
         self.canon_light_a = canon_light[:,:1] # ambience term
         self.canon_light_b = canon_light[:,1:2] # diffuse term
         canon_light_dxy = canon_light[:,2:]
-        self.canon_light_d = torch.cat([canon_light_dxy, torch.ones(b*2,1).to(self.input_im.device)], 1)
+        self.canon_light_d = torch.cat([canon_light_dxy, -torch.ones(b*2,1).to(self.input_im.device)], 1)
         self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
         self.lighting = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
         # self.canon_lighting = torch.cat([self.canon_light_a, self.canon_light_b, self.canon_light_d], 1)
-
-        ## shading
-        # self.canon_normal = self.renderer.get_normal_from_depth(self.canon_depth)
-        # self.canon_diffuse_shading = (self.canon_normal * self.canon_light_d.view(-1,1,1,3)).sum(3).clamp(min=0).unsqueeze(1)
-        # canon_shading = self.canon_light_a.view(-1,1,1,1) + self.canon_light_b.view(-1,1,1,1)*self.canon_diffuse_shading
-        # self.canon_im = (self.canon_albedo/2+0.5) * canon_shading *2-1
 
         ## predict viewpoint transformation
         self.view = self.netV(self.input_im).repeat(2,1)
@@ -209,6 +211,19 @@ class Unsup3D():
         # print(torch.min(netV_params[0].data))
         # register_hook(self.canon_albedo, "canon_albedo")
 
+        # self.canon_albedo = self.input_im*2-1
+        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)
+
+
+        # load perfect canon_albedo
+        # canon_albedo_loaded = np.load("/users/janhr/unsup3d_extended/unsup3d/canon_albedo.npy")
+        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
+        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+
+
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
@@ -216,12 +231,24 @@ class Unsup3D():
         self.recon_im = self.recon_im.permute(0,3,1,2)
         # self.recon_im = self.recon_im*2. -1
 
+
+        # create shading image
+        white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
+        new_light = { "ambient": -1*torch.ones_like(self.canon_light_a), "diffuse": torch.ones_like(self.canon_light_b), "direction": self.canon_light_d}
+        self.shading_img = self.renderer(self.meshes, white_albedo, self.view, new_light)
+        self.shading_img = self.shading_img[...,:3]
+        self.shading_img = self.shading_img.sum(3).clamp(min=0)
+        self.shading_img = self.shading_img.unsqueeze(3)
+        self.shading_img = self.shading_img.permute(0,3,1,2)
+
         print(f"albedo max: {torch.max(self.canon_albedo)}")
         print(f"albedo min: {torch.min(self.canon_albedo)}")
         print(f"recon_img max: {torch.max(self.recon_im)}")
         print(f"recon_img min: {torch.min(self.recon_im)}")
         print(f"input max: {torch.max(self.input_im)}")
         print(f"input min: {torch.min(self.input_im)}")
+        print(f"shading_img max: {torch.max(self.shading_img)}")
+        print(f"shading_img min: {torch.min(self.shading_img)}")
 
         # self.renderer.set_transform_matrices(self.view)
         # self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
@@ -298,6 +325,14 @@ class Unsup3D():
             metrics['SIE_masked'] = self.acc_sie_masked.mean()
             metrics['NorErr_masked'] = self.acc_normal_masked.mean()
 
+        
+        # sanity check
+        canon_albedo_save = self.canon_albedo[:b].detach().cpu().numpy()
+        np.save(f"albedos_sanity/canon_albedo_{iter}", canon_albedo_save)
+
+        input_im_save = self.input_im[:b].detach().cpu().numpy() 
+        np.save(f"input_imgs_sanity/input_im{iter}", input_im_save) 
+
         return metrics
 
     def visualize(self, logger, total_iter, max_bs=25):
@@ -310,6 +345,7 @@ class Unsup3D():
         #     canon_im_rotate = self.renderer.render_yaw(self.canon_im[:b0], self.canon_depth[:b0], v_before=v0, maxr=90).detach().cpu() /2.+0.5  # (B,T,C,H,W)
         #     canon_normal_rotate = self.renderer.render_yaw(self.canon_normal[:b0].permute(0,3,1,2), self.canon_depth[:b0], v_before=v0, maxr=90).detach().cpu() /2.+0.5  # (B,T,C,H,W)
 
+        shading_im = self.shading_img[:b0].detach().cpu()
         input_im = self.input_im[:b0].detach().cpu() 
         # input_im_symline = self.input_im_symline[:b0].detach().cpu() /2.+0.5
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
@@ -364,6 +400,7 @@ class Unsup3D():
 
         log_grid_image('Depth/canonical_depth_raw', canon_depth_raw)
         log_grid_image('Depth/canonical_depth', canon_depth)
+        log_grid_image('Depth/diffuse_shading', shading_im)
         # log_grid_image('Depth/recon_depth', recon_depth)
         # log_grid_image('Depth/canonical_diffuse_shading', canon_diffuse_shading)
         # log_grid_image('Depth/canonical_normal', canon_normal)
