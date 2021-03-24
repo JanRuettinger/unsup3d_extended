@@ -146,17 +146,20 @@ class Unsup3D():
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
-        # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
-        # self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-        # self.canon_depth = self.canon_depth.tanh()
-        # self.canon_depth = self.depth_rescaler(self.canon_depth)
-
-        depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
-        self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
-        self.canon_depth_raw = self.canon_depth_raw.flip(1)
+        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
+
+        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
+        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
+        # self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
+        # self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
+        # self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
+        # self.canon_depth_raw = self.canon_depth_raw.flip(1)
+        # self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        # self.canon_depth = self.canon_depth.tanh()
+        # self.canon_depth = self.depth_rescaler(self.canon_depth)
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
@@ -208,10 +211,6 @@ class Unsup3D():
 
         # self.canon_albedo = self.input_im*2-1
         # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)
-
-
-
-
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
@@ -386,8 +385,8 @@ class Unsup3D():
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
         for i in range(self.view.shape[1]):
             logger.add_histogram('View/'+vlist[i], self.view[:,i], total_iter)
-        logger.add_histogram('Light/canon_light_a', self.canon_light_a, total_iter)
-        logger.add_histogram('Light/canon_light_b', self.canon_light_b, total_iter)
+        logger.add_histogram('Light/canon_light_a', self.canon_light_a/2.+0.5, total_iter)
+        logger.add_histogram('Light/canon_light_b', self.canon_light_b/2.+0.5, total_iter)
         llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
         for i in range(self.canon_light_d.shape[1]):
             logger.add_histogram('Light/'+llist[i], self.canon_light_d[:,i], total_iter)
