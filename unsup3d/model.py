@@ -146,20 +146,17 @@ class Unsup3D():
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
-        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
+        self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
+        self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
+        self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
+        self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
+        self.canon_depth_raw = self.canon_depth_raw.flip(1)
+
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
-
-        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
-        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
-        # self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
-        # self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
-        # self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
-        # self.canon_depth_raw = self.canon_depth_raw.flip(1)
-        # self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-        # self.canon_depth = self.canon_depth.tanh()
-        # self.canon_depth = self.depth_rescaler(self.canon_depth)
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
@@ -170,11 +167,9 @@ class Unsup3D():
 
         ## predict canonical albedo
         # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
-
-        # load perfect canon_albedo
         canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
         self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
@@ -200,25 +195,12 @@ class Unsup3D():
         if self.view.requires_grad:
             register_hook(self.view, "view")
 
-        # if self.canon_depth_raw.requires_grad:
-        #     register_hook(self.canon_depth_raw, "depth_map")
-
-
-        # netV_params = list(self.netV.parameters())
-        # print(torch.max(netV_params[0].data))
-        # print(torch.min(netV_params[0].data))
-        # register_hook(self.canon_albedo, "canon_albedo")
-
-        # self.canon_albedo = self.input_im*2-1
-        # self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)
-
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.recon_im = self.recon_im.permute(0,3,1,2)
         # self.recon_im = self.recon_im*2. -1
-
 
         # create shading image
         white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
@@ -244,7 +226,6 @@ class Unsup3D():
         self.shading_img_side_view = self.shading_img_side_view.unsqueeze(3)
         self.shading_img_side_view = self.shading_img_side_view.permute(0,3,1,2)
 
-
         print(f"albedo max: {torch.max(self.canon_albedo)}")
         print(f"albedo min: {torch.min(self.canon_albedo)}")
         print(f"recon_img max: {torch.max(self.recon_im)}")
@@ -254,49 +235,19 @@ class Unsup3D():
         print(f"shading_img max: {torch.max(self.shading_img)}")
         print(f"shading_img min: {torch.min(self.shading_img)}")
 
-        # self.renderer.set_transform_matrices(self.view)
-        # self.recon_depth = self.renderer.warp_canon_depth(self.canon_depth)
-        # self.recon_normal = self.renderer.get_normal_from_depth(self.recon_depth)
-        # grid_2d_from_canon = self.renderer.get_inv_warped_2d_grid(self.recon_depth)
-        # self.recon_im = nn.functional.grid_sample(self.canon_im, grid_2d_from_canon, mode='bilinear')
-
-        # margin = (self.max_depth - self.min_depth) /2
-        # recon_im_mask = (self.recon_depth < self.max_depth+margin).float()  # invalid border pixels have been clamped at max_depth+margin
-        # recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]  # both original and flip reconstruction
-        # recon_im_mask_both = recon_im_mask_both.repeat(2,1,1).unsqueeze(1).detach()
-        # self.recon_im = self.recon_im * recon_im_mask_both
-
-        # recon_im_mask_both = (self.recon_im == 1) # get all white pixels
-        # recon_im_mask_both = (~recon_im_mask_both).float()
-        # recon_im_mask_both = recon_im_mask_both[...,0]
-        # recon_im_mask_both = recon_im_mask_both.unsqueeze(3).detach()
-        # self.recon_im = self.recon_im * recon_im_mask_both
-
-        # self.recon_im = self.recon_im.view(2*b,c,w,h)
-        # recon_im_mask_both = recon_im_mask_both.view(2*b,1,w,h)
-
-        # self.recon_im = self.recon_im.view(2*b,c,h,w)
-        # recon_im_mask_both = recon_im_mask_both.view(2*b,c,h,w)
-
-        ## render symmetry axis
-        # canon_sym_axis = torch.zeros(h, w).to(self.input_im.device)
-        # canon_sym_axis[:, w//2-1:w//2+1] = 1
-        # self.recon_sym_axis = nn.functional.grid_sample(canon_sym_axis.repeat(b*2,1,1,1), grid_2d_from_canon, mode='bilinear')
-        # self.recon_sym_axis = self.recon_sym_axis * recon_im_mask_both
-        # green = torch.FloatTensor([-1,1,-1]).to(self.input_im.device).view(1,3,1,1)
-        # self.input_im_symline = (0.5*self.recon_sym_axis) *green + (1-0.5*self.recon_sym_axis) *self.input_im.repeat(2,1,1,1)
-
-        ## loss function
+        ## loss function with mask and with conf map
         # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_l1[:,:1])
         # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_l1[:,1:])
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
+        ## loss function without mask and with conf map
         # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
         # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
 
+        ## loss function without mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=None)
         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
@@ -385,8 +336,8 @@ class Unsup3D():
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
         for i in range(self.view.shape[1]):
             logger.add_histogram('View/'+vlist[i], self.view[:,i], total_iter)
-        logger.add_histogram('Light/canon_light_a', self.canon_light_a/2.+0.5, total_iter)
-        logger.add_histogram('Light/canon_light_b', self.canon_light_b/2.+0.5, total_iter)
+        logger.add_histogram('Light/canon_light_a', self.canon_light_a, total_iter)
+        logger.add_histogram('Light/canon_light_b', self.canon_light_b, total_iter)
         llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
         for i in range(self.canon_light_d.shape[1]):
             logger.add_histogram('Light/'+llist[i], self.canon_light_d[:,i], total_iter)

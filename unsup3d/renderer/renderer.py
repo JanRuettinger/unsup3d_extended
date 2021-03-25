@@ -52,7 +52,7 @@ class Renderer(nn.Module):
         self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-4)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
-        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
+        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
         fx = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
