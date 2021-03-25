@@ -279,6 +279,11 @@ class Unsup3D():
         self.shading_img = self.renderer(self.meshes, white_albedo, self.view, new_light)
         self.shading_img = self.shading_img[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
+        # create side view of shading image
+        side_view = utils.get_side_view(self.view)
+        self.shading_img_side_view = self.renderer(self.meshes, white_albedo,side_view,new_light)
+        self.shading_img_side_view = self.shading_img_side_view[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+
         # render rotations for shadding image
         self.rotated_views = utils.calculate_views_for_360_video(self.view, num_frames=8).to(self.device)
         for i in range(8):
@@ -295,24 +300,20 @@ class Unsup3D():
             reconstructed_img_rotated = reconstructed_img_rotated[:b0].detach()
 
         shading_im = self.shading_img[:b0].detach().cpu()
-        # shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
+        shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
         input_im = self.input_im[:b0].detach().cpu() 
-        # input_im_symline = self.input_im_symline[:b0].detach().cpu() /2.+0.5
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
-        # canon_im = self.canon_im[:b0].detach().cpu() /2.+0.5
         recon_im = self.recon_im[:b0].detach().cpu()
         recon_im_flip = self.recon_im[b:b+b0].detach().cpu()
         canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
         canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5
         canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
-        # # recon_depth = ((self.recon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
-        # # canon_diffuse_shading = self.canon_diffuse_shading[:b0].detach().cpu()
-        # # canon_normal = self.canon_normal.permute(0,3,1,2)[:b0].detach().cpu() /2+0.5
-        # # recon_normal = self.recon_normal.permute(0,3,1,2)[:b0].detach().cpu() /2+0.5
         conf_map_l1 = 1/(1+self.conf_sigma_l1[:b0,:1].detach().cpu()+EPS)
         conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b0,1:].detach().cpu()+EPS)
         conf_map_percl = 1/(1+self.conf_sigma_percl[:b0,:1].detach().cpu()+EPS)
         conf_map_percl_flip = 1/(1+self.conf_sigma_percl[:b0,1:].detach().cpu()+EPS)
+        canon_light_a = self.canon_light_a/2.+0.5
+        canon_light_b = self.canon_light_b/2.+0.5
 
         shadding_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(shading_img_rotated, 1)]  # [(C,H,W)]*T
         shadding_im_rotate_grid = torch.stack(shadding_im_rotate_grid, 0).unsqueeze(0)  # (1,T,C,H,W)
@@ -331,8 +332,8 @@ class Unsup3D():
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
         for i in range(self.view.shape[1]):
             logger.add_histogram('View/'+vlist[i], self.view[:,i], total_iter)
-        logger.add_histogram('Light/canon_light_a', self.canon_light_a, total_iter)
-        logger.add_histogram('Light/canon_light_b', self.canon_light_b, total_iter)
+        logger.add_histogram('Light/canon_light_a', canon_light_a, total_iter)
+        logger.add_histogram('Light/canon_light_b', canon_light_b, total_iter)
         llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
         for i in range(self.canon_light_d.shape[1]):
             logger.add_histogram('Light/'+llist[i], self.canon_light_d[:,i], total_iter)
@@ -342,24 +343,16 @@ class Unsup3D():
             logger.add_image(label, im_grid, iter)
 
         log_grid_image('Image/input_image', input_im)
-        # log_grid_image('Image/input_image_symline', input_im_symline)
         log_grid_image('Image/canonical_albedo', canon_albedo)
-        # log_grid_image('Image/canonical_image', canon_im)
         log_grid_image('Image/recon_image', recon_im)
         log_grid_image('Image/recon_image_flip', recon_im_flip)
-        # log_grid_image('Image/recon_side', canon_im_rotate[:,0,:,:,:])
 
         log_grid_image('Depth/canonical_depth_raw', canon_depth_raw)
         log_grid_image('Depth/canonical_depth', canon_depth)
         log_grid_image('Depth/diffuse_shading', shading_im)
-        # log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
-        # log_grid_image('Depth/recon_depth', recon_depth)
-        # log_grid_image('Depth/canonical_diffuse_shading', canon_diffuse_shading)
-        # log_grid_image('Depth/canonical_normal', canon_normal)
-        # log_grid_image('Depth/recon_normal', recon_normal)
+        log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
 
         logger.add_histogram('Image/canonical_albedo_hist', canon_albedo, total_iter)
-        # # logger.add_histogram('Image/canonical_diffuse_shading_hist', canon_diffuse_shading, total_iter)
 
         log_grid_image('Conf/conf_map_l1', conf_map_l1)
         logger.add_histogram('Conf/conf_sigma_l1_hist', self.conf_sigma_l1[:,:1], total_iter)
@@ -401,16 +394,10 @@ class Unsup3D():
         #     canon_normal_rotate = canon_normal_rotate.clamp(-1,1).detach().cpu() /2+0.5
 
         input_im = self.input_im[:b].detach().cpu().numpy() /2+0.5
-        # input_im_symline = self.input_im_symline.detach().cpu().numpy() /2.+0.5
         canon_albedo = self.canon_albedo[:b].detach().cpu().numpy() /2+0.5
-        # canon_im = self.canon_im[:b].clamp(-1,1).detach().cpu().numpy() /2+0.5
         recon_im = self.recon_im[:b].clamp(-1,1).detach().cpu().numpy() 
         recon_im_flip = self.recon_im[b:].clamp(-1,1).detach().cpu().numpy() 
         canon_depth = ((self.canon_depth[:b] -self.min_depth)/(self.max_depth-self.min_depth)).clamp(0,1).detach().cpu().unsqueeze(1).numpy()
-        # recon_depth = ((self.recon_depth[:b] -self.min_depth)/(self.max_depth-self.min_depth)).clamp(0,1).detach().cpu().unsqueeze(1).numpy()
-        # canon_diffuse_shading = self.canon_diffuse_shading[:b].detach().cpu().numpy()
-        # canon_normal = self.canon_normal[:b].permute(0,3,1,2).detach().cpu().numpy() /2+0.5
-        # recon_normal = self.recon_normal[:b].permute(0,3,1,2).detach().cpu().numpy() /2+0.5
         conf_map_l1 = 1/(1+self.conf_sigma_l1[:b,:1].detach().cpu().numpy()+EPS)
         conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b,1:].detach().cpu().numpy()+EPS)
         conf_map_percl = 1/(1+self.conf_sigma_percl[:b,:1].detach().cpu().numpy()+EPS)
@@ -425,16 +412,10 @@ class Unsup3D():
 
         sep_folder = True
         utils.save_images(save_dir, input_im, suffix='input_image', sep_folder=sep_folder)
-        # utils.save_images(save_dir, input_im_symline, suffix='input_image_symline', sep_folder=sep_folder)
         utils.save_images(save_dir, canon_albedo, suffix='canonical_albedo', sep_folder=sep_folder)
-        # utils.save_images(save_dir, canon_im, suffix='canonical_image', sep_folder=sep_folder)
         utils.save_images(save_dir, recon_im, suffix='recon_image', sep_folder=sep_folder)
         utils.save_images(save_dir, recon_im_flip, suffix='recon_image_flip', sep_folder=sep_folder)
         utils.save_images(save_dir, canon_depth, suffix='canonical_depth', sep_folder=sep_folder)
-        # utils.save_images(save_dir, recon_depth, suffix='recon_depth', sep_folder=sep_folder)
-        # utils.save_images(save_dir, canon_diffuse_shading, suffix='canonical_diffuse_shading', sep_folder=sep_folder)
-        # utils.save_images(save_dir, canon_normal, suffix='canonical_normal', sep_folder=sep_folder)
-        # utils.save_images(save_dir, recon_normal, suffix='recon_normal', sep_folder=sep_folder)
         utils.save_images(save_dir, conf_map_l1, suffix='conf_map_l1', sep_folder=sep_folder)
         utils.save_images(save_dir, conf_map_l1_flip, suffix='conf_map_l1_flip', sep_folder=sep_folder)
         utils.save_images(save_dir, conf_map_percl, suffix='conf_map_percl', sep_folder=sep_folder)
