@@ -145,13 +145,13 @@ class Unsup3D():
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
-        # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
-        depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
-        self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
-        self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
-        self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
-        self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
-        self.canon_depth_raw = self.canon_depth_raw.flip(1)
+        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
+        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
+        # self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
+        # self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
+        # self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
+        # self.canon_depth_raw = self.canon_depth_raw.flip(1)
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
@@ -198,9 +198,13 @@ class Unsup3D():
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
+        self.alpha_mask = recon_im[...,3].unsqueeze(1)
         recon_im_mask_both = (recon_im[...,3] > 0).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
         # self.recon_im = self.recon_im*2. -1
+
+        # np.save(f"check/mask", recon_im_mask_both.detach().cpu().numpy())
+        # np.save(f"check/recon_img", recon_im.detach().cpu().numpy())
 
         # print(f"albedo max: {torch.max(self.canon_albedo)}")
         # print(f"albedo min: {torch.min(self.canon_albedo)}")
@@ -217,7 +221,7 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
-                ## loss function with mask and with conf map
+        ## loss function with mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
@@ -309,12 +313,13 @@ class Unsup3D():
             reconstructed_img_rotated_video.append(reconstructed_img_rotated)
         reconstructed_img_rotated_video = torch.stack(reconstructed_img_rotated_video).permute(1,0,2,3,4)
 
-        shading_im = self.shading_img[:b0].detach().cpu()
-        shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
         input_im = self.input_im[:b0].detach().cpu() 
         canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
         recon_im = self.recon_im[:b0].detach().cpu()
         recon_im_flip = self.recon_im[b:b+b0].detach().cpu()
+        alpha_mask = self.alpha_mask[:b0].detach().cpu()
+        shading_im = self.shading_img[:b0].detach().cpu()
+        shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
         canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
         canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5
         canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
@@ -356,6 +361,7 @@ class Unsup3D():
         log_grid_image('Image/canonical_albedo', canon_albedo)
         log_grid_image('Image/recon_image', recon_im)
         log_grid_image('Image/recon_image_flip', recon_im_flip)
+        log_grid_image('Image/alpha_mask', alpha_mask)
 
         log_grid_image('Depth/canonical_depth_raw', canon_depth_raw)
         log_grid_image('Depth/canonical_depth', canon_depth)
