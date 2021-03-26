@@ -1,9 +1,9 @@
 ## train cat
 ## trainer
 run_train: true
-num_epochs: 200
+num_epochs: 100
 batch_size: 16
-checkpoint_dir: results/debug
+checkpoint_dir: results/debug_waste
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -34,3 +34,5 @@ lr: 0.0001
 rot_center_depth: 1.0
 fov: 10  # in degrees
 tex_cube_size: 2
+blend_param_sigma: 0.00001
+blend_param_gamma: 0.00001
