@@ -141,9 +141,7 @@ class Unsup3D():
         if self.load_gt_depth:
             input, depth_gt = input
         # self.input_im = input.to(self.device) *2.-1.
-        # self.input_im = input.to(self.device)
-        input_im_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/input_imgs/input_im_{iter}.npy')
-        self.input_im = torch.from_numpy(input_im_loaded).to(device=self.device) /2 +0.5
+        self.input_im = input.to(self.device)
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
@@ -259,11 +257,14 @@ class Unsup3D():
 
         
         # sanity check
-        canon_albedo_save = self.canon_albedo[:b].detach().cpu().numpy()
-        np.save(f"albedos_sanity/canon_albedo_{iter}", canon_albedo_save)
+        # canon_albedo_save = self.canon_albedo/2.+0.5
+        # canon_albedo_save = canon_albedo_save[:b].detach().cpu().permute(0,2,3,1).numpy()[0]*255
+        # PIL_image = Image.fromarray(np.uint8(canon_albedo_save))
+        # PIL_image.save(f"albedos_sanity/albedo_{iter}.png")
 
-        input_im_save = self.input_im[:b].detach().cpu().numpy() 
-        np.save(f"input_imgs_sanity/input_im{iter}", input_im_save) 
+        # input_im_save = self.input_im[:b].detach().cpu().permute(0,2,3,1).numpy()[0]*255
+        # PIL_image = Image.fromarray(np.uint8(input_im_save)).convert('RGB')
+        # PIL_image.save(f"input_imgs_sanity/img_{iter}.png")
 
         return metrics
 
@@ -292,8 +293,6 @@ class Unsup3D():
             shading_img_rotated = shading_img_rotated[:b0].detach()
             shading_img_rotated_video.append(shading_img_rotated)
         shading_img_rotated_video = torch.stack(shading_img_rotated_video).permute(1,0,2,3,4)
-            # PIL_image = Image.fromarray(shading_img_rotated[0,0]).convert("L")
-            # PIL_image.save(f"view_check_{i}.png")
         
         # render rotations for reconstructed image
         reconstructed_img_rotated_video = []
