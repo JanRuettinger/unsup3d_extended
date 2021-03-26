@@ -198,6 +198,7 @@ class Unsup3D():
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
+        recon_im_mask_both = (recon_im[...,3] > 0).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
         # self.recon_im = self.recon_im*2. -1
 
@@ -216,6 +217,12 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_percl[:,1:])
 
+                ## loss function with mask and with conf map
+        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
+
         ## loss function without mask and with conf map
         # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
         # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_l1[:,1:])
@@ -223,10 +230,10 @@ class Unsup3D():
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=self.conf_sigma_percl[:,1:])
 
         ## loss function without mask and without conf map
-        self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=None)
-        self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=None)
-        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
-        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
+        # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=None)
+        # self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, conf_sigma=None)
+        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
+        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
@@ -255,7 +262,6 @@ class Unsup3D():
             metrics['SIE_masked'] = self.acc_sie_masked.mean()
             metrics['NorErr_masked'] = self.acc_normal_masked.mean()
 
-        
         # sanity check
         # canon_albedo_save = self.canon_albedo/2.+0.5
         # canon_albedo_save = canon_albedo_save[:b].detach().cpu().permute(0,2,3,1).numpy()[0]*255
