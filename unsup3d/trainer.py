@@ -139,7 +139,7 @@ class Trainer():
             self.model.set_eval()
 
         for iter, input in enumerate(loader):
-            if iter == 141:
+            if iter == 141 or iter == 282 or iter == 1116:
                 continue
             m = self.model.forward(input, iter)
             if is_train:

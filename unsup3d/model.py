@@ -56,7 +56,7 @@ class Unsup3D():
 
         ## networks and optimizers
         self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        # self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -146,12 +146,13 @@ class Unsup3D():
 
         ## predict canonical depth
         self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
-        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps/canon_depth_map_{iter}.npy')
-        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device) 
+        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{iter}.npy')
+        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
         # self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
         # self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
         # self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
         # self.canon_depth_raw = self.canon_depth_raw.flip(1)
+        # self.canon_depth_raw = self.canon_depth_raw[:b,...]
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         self.canon_depth = self.canon_depth.tanh()
@@ -159,15 +160,18 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos/canon_albedo_{iter}.npy')
-        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
+        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        self.canon_albedo = self.canon_albedo[:b]
+        if(self.image_size == 128):
+            self.canon_albedo = torch.nn.functional.interpolate(self.canon_albedo, scale_factor=2)
 
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
@@ -295,7 +299,7 @@ class Unsup3D():
         self.shading_img_side_view = self.shading_img_side_view[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
         # render rotations for shadding image
-        num_rotated_frames = 32
+        num_rotated_frames = 8
         self.rotated_views = utils.calculate_views_for_360_video(self.view, num_frames=num_rotated_frames).to(self.device)
         shading_img_rotated_video = []
         for i in range(num_rotated_frames):

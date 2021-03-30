@@ -8,7 +8,7 @@ save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
 use_logger: true
-log_freq: 20
+log_freq: 100
 
 ## dataloader
 num_workers: 4
