@@ -56,7 +56,7 @@ class Unsup3D():
 
         ## networks and optimizers
         self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        # self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -166,12 +166,12 @@ class Unsup3D():
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
-        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
-        self.canon_albedo = self.canon_albedo[:b]
-        if(self.image_size == 128):
-            self.canon_albedo = torch.nn.functional.interpolate(self.canon_albedo, scale_factor=2)
+        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
+        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        # self.canon_albedo = self.canon_albedo[:b]
+        # if(self.image_size == 128):
+        #     self.canon_albedo = torch.nn.functional.interpolate(self.canon_albedo, scale_factor=2)
 
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
@@ -228,8 +228,8 @@ class Unsup3D():
         ## loss function with mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
 
         ## loss function without mask and with conf map
         # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
@@ -244,8 +244,8 @@ class Unsup3D():
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
-        # self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
-        self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip
+        self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
+        # self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip
 
         metrics = {'loss': self.loss_total}
 
@@ -345,8 +345,8 @@ class Unsup3D():
         logger.add_scalar('Loss/loss_total', self.loss_total, total_iter)
         logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
         logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
-        # logger.add_scalar('Loss/loss_perc_im', self.loss_perc_im, total_iter)
-        # logger.add_scalar('Loss/loss_perc_im_flip', self.loss_perc_im_flip, total_iter)
+        logger.add_scalar('Loss/loss_perc_im', self.loss_perc_im, total_iter)
+        logger.add_scalar('Loss/loss_perc_im_flip', self.loss_perc_im_flip, total_iter)
 
         logger.add_histogram('Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
