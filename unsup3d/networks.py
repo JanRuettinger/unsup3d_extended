@@ -249,6 +249,7 @@ class PerceptualLoss(nn.Module):
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
+        self.loss_weights = [2.5, 0.4, 0.13, 0.43]
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -288,7 +289,7 @@ class PerceptualLoss(nn.Module):
         feats += [torch.chunk(f, 2, dim=0)]
 
         losses = []
-        for f1, f2 in feats[2:3]:  # use relu3_3 features only
+        for f1, f2 in feats:  # use relu3_3 features only
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 loss = loss / (2*conf_sigma**2 +EPS) + (conf_sigma +EPS).log()
@@ -301,4 +302,5 @@ class PerceptualLoss(nn.Module):
             else:
                 loss = loss.mean()
             losses += [loss]
+        losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
         return sum(losses)

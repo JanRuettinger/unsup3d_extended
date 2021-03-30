@@ -26,7 +26,7 @@ max_depth: 1.1
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0.1  # (-t,t) in 3D
-lam_perc: 0.01 # 1
+lam_perc: 0.02 # 1
 lam_flip: 0.5
 lam_flip_start_epoch: 10
 lr: 0.0001
