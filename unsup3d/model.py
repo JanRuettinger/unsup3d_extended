@@ -144,16 +144,17 @@ class Unsup3D():
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
-        # self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
-        depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{iter}.npy')
-        self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
-        self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
-        self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
-        self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
-        self.canon_depth_raw = self.canon_depth_raw.flip(1)
-        self.canon_depth_raw = self.canon_depth_raw[:b,...]
+        self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
+        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{iter}.npy')
+        # self.canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
+        # self.canon_depth_raw = self.canon_depth_raw.unsqueeze(1)
+        # self.canon_depth_raw = torch.nn.functional.interpolate(self.canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
+        # self.canon_depth_raw = self.canon_depth_raw.squeeze(1)
+        # self.canon_depth_raw = self.canon_depth_raw.flip(1)
+        # self.canon_depth_raw = self.canon_depth_raw[:b,...]
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        self.canon_depth = 0.1*self.canon_depth
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -165,12 +166,12 @@ class Unsup3D():
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
         ## predict canonical albedo
-        # self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
-        self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
-        self.canon_albedo = self.canon_albedo[:b]
-        if(self.image_size == 128):
-            self.canon_albedo = torch.nn.functional.interpolate(self.canon_albedo, scale_factor=2)
+        self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
+        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
+        # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
+        # self.canon_albedo = self.canon_albedo[:b]
+        # if(self.image_size == 128):
+        #     self.canon_albedo = torch.nn.functional.interpolate(self.canon_albedo, scale_factor=2)
 
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
