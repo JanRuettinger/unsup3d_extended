@@ -178,3 +178,28 @@ def compute_angular_distance(n1, n2, mask=None):
 def save_scores(out_path, scores, header=''):
     print('Saving scores to %s' %out_path)
     np.savetxt(out_path, scores, fmt='%.8f', delimiter=',\t', header=header)
+
+def calculate_views_for_360_video(original_view, num_frames=8):
+    views = []
+    for i in range(num_frames):
+        rotation_around_y = -i*2*np.pi/num_frames
+        new_view = original_view.detach().clone()
+        new_view[:,0] = 0 # rotation around x axis
+        new_view[:,1] = rotation_around_y # rotation around y axis
+        new_view[:,2] = 0# rotation around z axis
+        new_view[:,3] = 0 #x
+        new_view[:,4] = 0 #y
+        new_view[:,5] = 0 #z
+        views.append(new_view)
+    
+    return torch.stack(views)
+
+def get_side_view(original_view):
+    new_view = original_view.detach().clone()
+    new_view[:,0] = 0 # rotation around x axis
+    new_view[:,1] = -np.pi/2 # rotation around y axis
+    new_view[:,2] = 0# rotation around z axis
+    new_view[:,3] = 0 #x
+    new_view[:,4] = 0 #y
+    new_view[:,5] = 0 #
+    return new_view

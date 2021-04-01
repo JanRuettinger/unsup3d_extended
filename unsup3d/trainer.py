@@ -139,7 +139,9 @@ class Trainer():
             self.model.set_eval()
 
         for iter, input in enumerate(loader):
-            m = self.model.forward(input)
+            if iter == 141 or iter == 282 or iter == 1116:
+                continue
+            m = self.model.forward(input, iter)
             if is_train:
                 self.model.backward()
             elif is_test:
@@ -151,6 +153,6 @@ class Trainer():
             if self.use_logger and is_train:
                 total_iter = iter + epoch*self.train_iter_per_epoch
                 if total_iter % self.log_freq == 0:
-                    self.model.forward(self.viz_input)
+                    self.model.forward(self.viz_input, iter=-1)
                     self.model.visualize(self.logger, total_iter=total_iter, max_bs=25)
         return metrics

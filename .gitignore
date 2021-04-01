@@ -6,3 +6,14 @@ neural_renderer
 *.zip
 .ipynb_checkpoints/
 .vscode/
+
+albedos_sanity/
+input_imgs_sanity/
+unsup3d/albedos/
+unsup3d/depth_maps/
+unsup3d/input_imgs/
+check/
+albedos_8/
+albedos_16/
+depth_maps_8/
+depth_maps_16/

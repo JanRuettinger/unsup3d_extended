@@ -1,4 +1,5 @@
 import numpy as np
+import pickle 
 import math
 import torch
 import torch.nn as nn
@@ -49,10 +50,13 @@ class Renderer(nn.Module):
         self.image_size = cfgs.get('image_size', 64)
         self.depthmap_size = cfgs.get('depthmap_size', 32)
         self.fov = cfgs.get('fov', 10)
-        self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-4)
+        self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-5)
+        blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
+        blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
+        self.blend_params = pytorch3d.renderer.blending.BlendParams(sigma=blend_param_sigma, gamma=blend_param_gamma)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
-        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(cfgs['init_shape_obj_path'], device=self.device)
+        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
         fx = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
@@ -68,10 +72,11 @@ class Renderer(nn.Module):
     def _create_image_renderer(self):
         raster_settings = self._get_rasterization_settings()
         renderer = MeshRenderer(rasterizer=MeshRasterizer(cameras=self.cameras, raster_settings=raster_settings),
-                                shader=SoftPhongShader(device=self.device, cameras=self.cameras))
+                                shader=SoftPhongShader(device=self.device, cameras=self.cameras,blend_params=self.blend_params))
         return renderer
 
     def _get_rasterization_settings(self):
+        self.blur_radius = np.log(1. / 1e-4 - 1.) * self.blend_params.sigma 
         raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32, perspective_correct=False)
         return raster_settings
 
@@ -89,7 +94,7 @@ class Renderer(nn.Module):
     def _get_lights(self, lighting):
         ambient = lighting["ambient"]/2.+0.5
         diffuse = lighting["diffuse"]/2.+0.5
-        direction = -lighting["direction"]
+        direction = lighting["direction"]
         ambient_color = ambient.repeat(1,3)
         diffuse_color = diffuse.repeat(1,3)
         b, _  = ambient.shape
@@ -115,6 +120,14 @@ class Renderer(nn.Module):
         meshes_verts = meshes.verts_padded()
         new_mesh_verts = tsf.transform_points(meshes_verts)
         transformed_meshes = meshes.update_padded(new_mesh_verts) 
+
+        # np.save(f"check/meshes_verts", meshes_verts.detach().cpu().numpy())
+        # filehandler = open(f"check/meshes.pkl", 'wb') 
+        # pickle.dump(meshes.detach().cpu(), filehandler)
+        # filehandler = open(f"check/meshes_transformed.pkl", 'wb') 
+        # pickle.dump(transformed_meshes.detach().cpu(), filehandler)
+        # np.save(f"check/meshes", meshes.detach().cpu())
+        # np.save(f"check/meshes_transformed", transformed_meshes.detach().cpu())
         
         return transformed_meshes.to(self.device)
 
