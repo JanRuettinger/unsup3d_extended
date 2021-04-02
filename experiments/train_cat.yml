@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 100
 batch_size: 8
-checkpoint_dir: results/debug_waste/equal_flip_loss
+checkpoint_dir: results/debug_waste/gaussian_blub
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
@@ -28,7 +28,7 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0.1  # (-t,t) in 3D
 lam_perc: 0.02 # 1
-lam_flip: 1
+lam_flip: 0.3
 lr: 0.0001
 
 ## renderer
