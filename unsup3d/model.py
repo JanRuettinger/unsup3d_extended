@@ -154,10 +154,26 @@ class Unsup3D():
         # self.canon_depth_raw = self.canon_depth_raw.flip(1)
         # self.canon_depth_raw = self.canon_depth_raw[:b,...]
 
+
+
         # add gaussian blub
-        self.canon_depth_raw = self.canon_depth_raw + self.guassian_blub 
+        # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{0}.npy')
+        depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy'))[0,...].to(self.device)
+        depthmap_prior = depthmap_prior.unsqueeze(0)
+        depthmap_prior = depthmap_prior.unsqueeze(0)
+        depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
+        # canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
+        # canon_depth_raw = canon_depth_raw.unsqueeze(1)
+        # canon_depth_raw = torch.nn.functional.interpolate(canon_depth_raw, size=[32,32], mode='nearest', align_corners=None)
+        # canon_depth_raw = canon_depth_raw.squeeze(1)
+        # canon_depth_raw = canon_depth_raw.flip(1)
+        # canon_depth_raw = canon_depth_raw[:b,...]
+        # self.guassian_blub = canon_depth_raw[0].detach()
+        # self.canon_depth_raw = self.canon_depth_raw + self.guassian_blub 
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        self.canon_depth = self.canon_depth + 10*depthmap_prior
+        self.canon_depth = self.canon_depth*0.1
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -231,13 +247,8 @@ class Unsup3D():
         ## loss function with mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-        loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-        loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-
-        self.loss_perc_im = loss_perc_im[0]
-        self.losses_perc_im = loss_perc_im[1]
-        self.loss_perc_im_flip = loss_perc_im_flip[0]
-        self.losses_perc_im_flipped = loss_perc_im_flip[1]
+        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
 
 
         ## loss function without mask and with conf map
@@ -354,11 +365,8 @@ class Unsup3D():
         logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
         logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
 
-        for i in range(len(self.losses_perc_im)):
-            logger.add_scalar(f'Loss/loss_perc_im_{i}', self.losses_perc_im[i], total_iter)
-        
-        for i in range(len(self.losses_perc_im_flipped)):
-            logger.add_scalar(f'Loss/loss_perc_im_flipped{i}', self.losses_perc_im_flipped[i], total_iter)
+        # logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
+        # logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
 
         logger.add_histogram('Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']

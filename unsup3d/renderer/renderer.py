@@ -50,7 +50,6 @@ class Renderer(nn.Module):
         self.image_size = cfgs.get('image_size', 64)
         self.depthmap_size = cfgs.get('depthmap_size', 32)
         self.fov = cfgs.get('fov', 10)
-        self.blur_radius = cfgs.get('blur_radius', np.log(1. / 1e-4 - 1.)*1e-5)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
         blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
         self.blend_params = pytorch3d.renderer.blending.BlendParams(sigma=blend_param_sigma, gamma=blend_param_gamma)

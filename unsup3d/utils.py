@@ -205,7 +205,7 @@ def get_side_view(original_view):
     return new_view
 
 def get_gaussian_like_blub(kernel_size=32):
-    sigma = 10
+    sigma = 4
 
     # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
     x_cord = torch.arange(kernel_size)

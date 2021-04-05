@@ -299,4 +299,4 @@ class PerceptualLoss(nn.Module):
                 loss = loss.mean()
             losses += [loss]
         # losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
-        return [sum(losses),losses]
+        return sum(losses)
