@@ -247,8 +247,8 @@ class Unsup3D():
         ## loss function with mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-        # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-        # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
+        self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+        self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
 
 
         ## loss function without mask and with conf map
@@ -263,8 +263,8 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
 
-        # self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + self.lam_flip*self.loss_perc_im_flip)
-        self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip
+        self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + self.lam_flip*self.loss_perc_im_flip)
+        # self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip
 
         metrics = {'loss': self.loss_total}
 

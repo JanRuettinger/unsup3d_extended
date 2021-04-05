@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision
+from . import utils
 
 
 EPS = 1e-7
@@ -299,4 +300,5 @@ class PerceptualLoss(nn.Module):
                 loss = loss.mean()
             losses += [loss]
         # losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
-        return sum(losses)
+        normalized_losses = utils.normalize_tensor(torch.tensor(losses))
+        return sum(normalized_losses)

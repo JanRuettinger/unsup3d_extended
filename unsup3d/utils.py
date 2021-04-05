@@ -227,3 +227,7 @@ def get_gaussian_like_blub(kernel_size=32):
     # Make sure sum of values in gaussian kernel equals 1.
     # gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
     return gaussian_kernel*200
+
+def normalize_tensor(in_feat,eps=1e-10):
+    norm_factor = torch.sqrt(torch.sum(in_feat**2,dim=0,keepdim=True))
+    return in_feat/(norm_factor+eps)
