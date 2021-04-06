@@ -76,7 +76,7 @@ class Renderer(nn.Module):
 
     def _get_rasterization_settings(self):
         self.blur_radius = np.log(1. / 1e-4 - 1.) * self.blend_params.sigma 
-        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=32, perspective_correct=False)
+        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=10, perspective_correct=False)
         return raster_settings
 
     def _get_textures(self, tex_im):
