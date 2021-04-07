@@ -240,13 +240,14 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False):
+    def __init__(self, requires_grad=False, mode=0):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
         self.loss_weights = [2.5, 0.4, 0.13, 0.43]
+        self.mode = mode
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -284,6 +285,15 @@ class PerceptualLoss(nn.Module):
         feats += [torch.chunk(f, 2, dim=0)]
         f = self.slice4(f)
         feats += [torch.chunk(f, 2, dim=0)]
+
+        if self.mode == 0:
+            feats = feats[:1]
+        if self.mode == 1:
+            feats = feats[:2]
+        if self.mode == 2:
+            feats = feats[:3]
+        if self.mode == 3:
+            feats = feats[:4]
 
         losses = []
         for f1, f2 in feats:  # use relu3_3 features only

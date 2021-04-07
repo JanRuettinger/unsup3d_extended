@@ -12,29 +12,6 @@ from .renderer import Renderer
 
 EPS = 1e-7
 
-
-def get_printer(msg):
-    """This function returns a printer function, that prints information about a  tensor's
-    gradient. Used by register_hook in the backward pass.
-    """
-    def printer(tensor):
-        if tensor.nelement() == 1:
-            print(f"{msg} {tensor}")
-        else:
-            print(f"{msg} shape: {tensor.shape}"
-                  f" max: {tensor.max()} min: {tensor.min()}"
-                  f" mean: {tensor.mean()}")
-    return printer
-
-
-def register_hook(tensor, msg):
-    """Utility function to call retain_grad and Pytorch's register_hook
-    in a single line
-    """
-    tensor.retain_grad()
-    tensor.register_hook(get_printer(msg))
-
-
 class Unsup3D():
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
@@ -50,6 +27,9 @@ class Unsup3D():
         self.lam_perc = cfgs.get('lam_perc', 1)
         self.lam_flip = cfgs.get('lam_flip', 0.5)
         self.lr = cfgs.get('lr', 1e-4)
+        self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
+        self.depthmap_prior = cfgs.get('depthmap_prior', True)
+        self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.renderer = Renderer(cfgs)
 
@@ -65,7 +45,7 @@ class Unsup3D():
             lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
 
         ## other parameters
-        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False)
+        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode)
         self.other_param_names = ['PerceptualLoss']
 
         ## depth rescaler: -1~1 -> min_deph~max_deph
@@ -159,8 +139,7 @@ class Unsup3D():
         # add gaussian blub
         # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{0}.npy')
         depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy'))[0,...].to(self.device)
-        depthmap_prior = depthmap_prior.unsqueeze(0)
-        depthmap_prior = depthmap_prior.unsqueeze(0)
+        depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
         depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
         # canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
         # canon_depth_raw = canon_depth_raw.unsqueeze(1)
@@ -172,8 +151,10 @@ class Unsup3D():
         # self.canon_depth_raw = self.canon_depth_raw + self.guassian_blub 
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-        self.canon_depth = self.canon_depth + 10*depthmap_prior
-        self.canon_depth = self.canon_depth*0.1
+        if self.depthmap_prior:
+            self.canon_depth = self.canon_depth + 1/self.spike_reduction*depthmap_prior
+        if self.spike_reduction:
+            self.canon_depth = self.canon_depth*self.spike_reduction
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -186,7 +167,7 @@ class Unsup3D():
 
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
-        # canon_albedo_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/albedos_{b}/canon_albedo_{iter}.npy')
+        # canon_albedo_loaded = np.load(f'/scratch/local/ssd/janhr/data/albedos_cats_bs_8/canon_albedo_{iter}.npy')
         # self.canon_albedo = torch.from_numpy(canon_albedo_loaded).to(device=self.device)
         # self.canon_albedo = self.canon_albedo[:b]
         # if(self.image_size == 128):
