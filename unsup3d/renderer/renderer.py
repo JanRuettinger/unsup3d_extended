@@ -49,6 +49,7 @@ class Renderer(nn.Module):
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
         self.depthmap_size = cfgs.get('depthmap_size', 32)
+        self.faces_per_pixel = cfgs.get('faces_per_pixel', 5)
         self.fov = cfgs.get('fov', 10)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
         blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
@@ -76,7 +77,7 @@ class Renderer(nn.Module):
 
     def _get_rasterization_settings(self):
         self.blur_radius = np.log(1. / 1e-4 - 1.) * self.blend_params.sigma 
-        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=10, perspective_correct=False)
+        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=self.faces_per_pixel, perspective_correct=False)
         return raster_settings
 
     def _get_textures(self, tex_im):
