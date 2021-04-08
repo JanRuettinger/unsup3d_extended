@@ -31,6 +31,7 @@ class Unsup3D():
         self.depthmap_prior = cfgs.get('depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
+        self.perc_loss_normalized = cfgs.get('perc_loss_normalized', True)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.renderer = Renderer(cfgs)
 
@@ -46,7 +47,7 @@ class Unsup3D():
             lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
 
         ## other parameters
-        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode)
+        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode, normalized=self.perc_loss_normalized)
         self.other_param_names = ['PerceptualLoss']
 
         ## depth rescaler: -1~1 -> min_deph~max_deph

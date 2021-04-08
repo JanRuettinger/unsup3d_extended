@@ -240,7 +240,7 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False, mode=0):
+    def __init__(self, requires_grad=False, mode=0, normalized=True):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
@@ -248,6 +248,7 @@ class PerceptualLoss(nn.Module):
         self.register_buffer('std_rgb', std_rgb)
         self.loss_weights = [2.5, 0.4, 0.13, 0.43]
         self.mode = mode
+        self.normalized = normalized
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -310,5 +311,9 @@ class PerceptualLoss(nn.Module):
                 loss = loss.mean()
             losses += [loss]
         # losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
-        normalized_losses = utils.normalize_tensor(torch.tensor(losses))
-        return sum(normalized_losses)
+
+        if self.normalized:
+            normalized_losses = utils.normalize_tensor(torch.tensor(losses))
+            return sum(normalized_losses)
+        else:
+            return sum(losses)
