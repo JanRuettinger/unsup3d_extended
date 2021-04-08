@@ -29,6 +29,7 @@ class Unsup3D():
         self.lr = cfgs.get('lr', 1e-4)
         self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
         self.depthmap_prior = cfgs.get('depthmap_prior', True)
+        self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.renderer = Renderer(cfgs)
@@ -138,7 +139,7 @@ class Unsup3D():
 
         # add gaussian blub
         # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{0}.npy')
-        depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy'))[0,...].to(self.device)
+        depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
         depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
         depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
         # canon_depth_raw = torch.from_numpy(depthmap_loaded).to(device=self.device)
