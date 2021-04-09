@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 100
 batch_size: 20
 # checkpoint_dir: results/new_sigma
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results/08_04/01
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results/08_04/06
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false

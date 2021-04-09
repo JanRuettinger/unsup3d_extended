@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 100
 batch_size: 20
 # checkpoint_dir: results/new_sigma
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results/08_04/07
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results/08_04/10
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -28,19 +28,19 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0.1  # (-t,t) in 3D
 lam_perc: 0.2 # 1
-perc_loss_mode: 2 # 0,1,2,3 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
+perc_loss_mode: 1 # 0,1,2,3 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
 perc_loss_normalized: false
 lam_flip: 0.3
 lr: 0.0001
 spike_reduction: 0.1
 depthmap_prior: true
-depthmap_prior_sigma: 5 #0, 5, 12
+depthmap_prior_sigma: 12 #0, 5, 12
 
 
 ## renderer
 rot_center_depth: 1.0
 fov: 10  # in degrees
 tex_cube_size: 2
-blend_param_sigma: 0.0000001
-blend_param_gamma: 0.00001
+blend_param_sigma: 0.0001
+blend_param_gamma: 0.0001
 faces_per_pixel: 5
