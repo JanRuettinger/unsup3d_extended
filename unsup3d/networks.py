@@ -240,13 +240,26 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False, mode=0, normalized=True):
+    def __init__(self, requires_grad=False, mode=0, train_loss_weights=False,normalized=True):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
-        self.loss_weights = [2.5, 0.4, 0.13, 0.43]
+        # self.loss_weights = [2.5, 0.4, 0.13, 0.43]
+        output_dim_mode_dict = {
+            "0": 1,
+            "1": 2,
+            "2": 3,
+            "3": 4,
+            "4": 1,
+            "5": 2
+        }
+        self.train_loss_weights = train_loss_weights
+        if self.train_loss_weights:
+            self.loss_weights = nn.Parameter(torch.ones([output_dim_mode_dict[str(mode)],1], requires_grad=True))
+        else:
+            self.loss_weights = [0]
         self.mode = mode
         self.normalized = normalized
 
@@ -263,9 +276,13 @@ class PerceptualLoss(nn.Module):
             self.slice3.add_module(str(x), vgg_pretrained_features[x])
         for x in range(16, 23):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
+
         if not requires_grad:
-            for param in self.parameters():
+            for param in vgg_pretrained_features.parameters():
                 param.requires_grad = False
+        #     for param in self.parameters():
+        #         param.requires_grad = False
+        
 
     def normalize(self, x):
         out = x/2 + 0.5
@@ -295,6 +312,11 @@ class PerceptualLoss(nn.Module):
             feats = feats[:3]
         if self.mode == 3:
             feats = feats[:4]
+        if self.mode == 4:
+            feats = feats[2:3]
+        if self.mode == 5:
+            feats = feats[1:3]
+
 
         losses = []
         for f1, f2 in feats:  # use relu3_3 features only
@@ -310,10 +332,13 @@ class PerceptualLoss(nn.Module):
             else:
                 loss = loss.mean()
             losses += [loss]
-        # losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
 
-        if self.normalized:
-            normalized_losses = utils.normalize_tensor(torch.tensor(losses))
-            return sum(normalized_losses)
-        else:
-            return sum(losses)
+        if self.train_loss_weights:
+            losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
+
+        # if self.normalized:
+        #     normalized_losses = utils.normalize_tensor(torch.tensor(losses))
+        #     return sum(normalized_losses)
+        # else:
+        #     return sum(losses)
+        return (sum(losses),losses,self.loss_weights)

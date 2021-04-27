@@ -4,9 +4,9 @@ import os
 import splitfolders
 
 
-IMG_DIM = 64
-INPUT_PATH = "/scratch/local/ssd/janhr/data/animals_original/" 
-OUTPUT_PATH = "/scratch/local/ssd/janhr/data/animals/" 
+IMG_DIM = 128
+INPUT_PATH = "/scratch/local/ssd/janhr/data/dogs_square_ratio/"
+OUTPUT_PATH = "/scratch/local/ssd/janhr/data/dogs_128/" 
 
 #### Helper fucntion ####
 def crop_center(pil_img, crop_width, crop_height):
@@ -33,7 +33,7 @@ def preprocess_and_move_images(data_path):
         img = Image.open(str(each_file))
         # Crop max square from image
         img_cropped = crop_max_square(img)
-        # Resize image to 64x64
+        # Resize image to IMG_DIMxIMG_DIM
         img_resized = img_cropped.resize((IMG_DIM,IMG_DIM))
 
         img_resized.save(str(each_file), quality=95)
@@ -59,7 +59,7 @@ print("Images are now in the correct shape and size as well as in the correct fo
 
 # sanity check
 num_files = len(list(Path(OUTPUT_PATH).glob('**/*.jpg')))
-assert num_files == 117484, "Not all images were found" 
+# assert num_files == 117484, "Not all images were found" 
 
 
 drop_empty_folders(str(train_path))

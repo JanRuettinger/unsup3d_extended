@@ -25,10 +25,15 @@ min_depth: 0.9
 max_depth: 1.1
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
-z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 0.15
-lam_flip: 0.5
+z_translation_range: 0.1  # (-t,t) in 3D
+lam_perc: 0.005 # 1
+perc_loss_mode: 2 # 0,1,2,3 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
+perc_loss_normalized: false
+lam_flip: 0.9
 lr: 0.0001
+spike_reduction: 0.1
+depthmap_prior: true
+depthmap_prior_sigma: 12 #0, 5, 12
 
 
 ## renderer
@@ -37,3 +42,4 @@ fov: 10  # in degrees
 tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
+faces_per_pixel: 6
