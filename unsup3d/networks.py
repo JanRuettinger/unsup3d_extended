@@ -240,7 +240,7 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False, mode=0, train_loss_weights=False,normalized=True):
+    def __init__(self, requires_grad=False, mode=4):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
@@ -255,13 +255,12 @@ class PerceptualLoss(nn.Module):
             "4": 1,
             "5": 2
         }
-        self.train_loss_weights = train_loss_weights
-        if self.train_loss_weights:
-            self.loss_weights = nn.Parameter(torch.ones([output_dim_mode_dict[str(mode)],1], requires_grad=True))
-        else:
-            self.loss_weights = [0]
+        # self.train_loss_weights = train_loss_weights
+        # if self.train_loss_weights:
+        #     self.loss_weights = nn.Parameter(torch.ones([output_dim_mode_dict[str(mode)],1], requires_grad=True))
+        # else:
+        #     self.loss_weights = [0]
         self.mode = mode
-        self.normalized = normalized
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -278,10 +277,10 @@ class PerceptualLoss(nn.Module):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
 
         if not requires_grad:
-            for param in vgg_pretrained_features.parameters():
+            # for param in vgg_pretrained_features.parameters():
+            #     param.requires_grad = False
+            for param in self.parameters():
                 param.requires_grad = False
-        #     for param in self.parameters():
-        #         param.requires_grad = False
         
 
     def normalize(self, x):
@@ -333,12 +332,12 @@ class PerceptualLoss(nn.Module):
                 loss = loss.mean()
             losses += [loss]
 
-        if self.train_loss_weights:
-            losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
+        # if self.train_loss_weights:
+        #     losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
 
         # if self.normalized:
         #     normalized_losses = utils.normalize_tensor(torch.tensor(losses))
         #     return sum(normalized_losses)
         # else:
-        #     return sum(losses)
-        return (sum(losses),losses,self.loss_weights)
+        return sum(losses)
+        # return (sum(losses),losses,self.loss_weights)

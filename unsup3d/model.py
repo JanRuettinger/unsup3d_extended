@@ -33,9 +33,7 @@ class Unsup3D():
         self.depthmap_prior = cfgs.get('depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
-        self.perc_loss_normalized = cfgs.get('perc_loss_normalized', True)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
-        self.train_perc_loss_weights = cfgs.get('train_perc_loss_weights', False)
         self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
         self.renderer = Renderer(cfgs)
 
@@ -52,9 +50,9 @@ class Unsup3D():
 
         ## other parameters
         if self.perc_loss_lpips:
-            self.PerceptualLoss = lpips.LPIPS(net='alex')
+            self.PerceptualLoss = lpips.LPIPS(net='alex').to(device=self.device)
         else:
-            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode, train_loss_weights=self.train_perc_loss_weights,normalized=self.perc_loss_normalized)
+            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode)
         self.loss_param_name = ['PerceptualLoss']
         # print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
 
@@ -72,7 +70,7 @@ class Unsup3D():
             setattr(self, optim_name, optimizer)
             self.optimizer_names += [optim_name]
         
-        if self.train_perc_loss_weights:
+        if self.perc_loss_lpips:
             for name in self.loss_param_name:
                 optimizer = self.make_optimizer(getattr(self, name))
                 optim_name = "optimizer_perc_loss"
@@ -106,9 +104,9 @@ class Unsup3D():
         self.device = device
         for net_name in self.network_names:
             setattr(self, net_name, getattr(self, net_name).to(device))
-        # if self.loss_param_name:
-        for param_name in self.loss_param_name:
-            setattr(self, param_name, getattr(self, param_name).to(device))
+
+        # for loss_name in self.loss_param_name:
+        #     setattr(self, loss_name, getattr(self, loss_name).to(device))
 
     def set_train(self):
         for net_name in self.network_names:
@@ -180,8 +178,8 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-12).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (6,6), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
@@ -264,15 +262,11 @@ class Unsup3D():
 
 
         if self.perc_loss_lpips:
-            self.loss_perc_im = torch.sum(self.PerceptualLoss(self.recon_im[:b], self.input_im))
-            self.loss_perc_im_flip = torch.sum(self.PerceptualLoss(self.recon_im[b:], self.input_im))
-            self.loss_perc_im_log = []
-            self.loss_perc_im_weights = []
+            self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b], self.input_im))
+            self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:], self.input_im))
         else:
-            loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-            loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-            self.loss_perc_im, self.loss_perc_im_log, self.loss_perc_im_weights  = loss_perc_im 
-            self.loss_perc_im_flip, _, _ = loss_perc_im_flip
+            self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+            self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
 
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
@@ -376,12 +370,6 @@ class Unsup3D():
         reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
         ## write summary
-        for i, l in enumerate(self.loss_perc_im_log): 
-            logger.add_scalar(f"Loss/loss_perc_{i}", l, total_iter)
-        
-        for i, l in enumerate(self.loss_perc_im_weights): 
-            logger.add_scalar(f"Weights/loss_perc_{i}_weights", l, total_iter)
-
         logger.add_scalar('Loss/loss_total', self.loss_total, total_iter)
         logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
         logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
