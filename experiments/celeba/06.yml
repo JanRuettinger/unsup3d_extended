@@ -2,8 +2,8 @@
 ## trainer
 run_train: true
 num_epochs: 50
-batch_size: 25
-checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/01
+batch_size: 15
+checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/06
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_results
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
@@ -29,8 +29,8 @@ xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0.1  # (-t,t) in 3D
 perc_loss_lpips: true
 lam_perc: 0.005 # 1
-perc_loss_mode: 5 # 0,1,2,3,4,5 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
-train_perc_loss_weights: true
+perc_loss_mode: 4 # 0,1,2,3,4,5 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
+train_perc_loss_weights: false
 perc_loss_normalized: false
 lam_flip: 0.9
 lr: 0.0001

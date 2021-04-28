@@ -6,6 +6,7 @@ import torch.nn as nn
 import numpy as np
 from PIL import Image
 import torchvision
+import lpips
 from . import networks
 from . import utils
 from .renderer import Renderer
@@ -35,6 +36,7 @@ class Unsup3D():
         self.perc_loss_normalized = cfgs.get('perc_loss_normalized', True)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.train_perc_loss_weights = cfgs.get('train_perc_loss_weights', False)
+        self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -49,9 +51,12 @@ class Unsup3D():
             lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
 
         ## other parameters
-        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode, train_loss_weights=self.train_perc_loss_weights,normalized=self.perc_loss_normalized)
+        if self.perc_loss_lpips:
+            self.PerceptualLoss = lpips.LPIPS(net='alex')
+        else:
+            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode, train_loss_weights=self.train_perc_loss_weights,normalized=self.perc_loss_normalized)
         self.loss_param_name = ['PerceptualLoss']
-        print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
+        # print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
 
 
         ## depth rescaler: -1~1 -> min_deph~max_deph
@@ -243,9 +248,7 @@ class Unsup3D():
         ## loss function with mask and without conf map
         self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
         self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-        loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-        loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-
+      
 
         ## loss function without mask and with conf map
         # self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, conf_sigma=self.conf_sigma_l1[:,:1])
@@ -259,8 +262,18 @@ class Unsup3D():
         # self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, conf_sigma=None)
         # self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, conf_sigma=None)
 
-        self.loss_perc_im, self.loss_perc_im_log, self.loss_perc_im_weights  = loss_perc_im 
-        self.loss_perc_im_flip, _, _ = loss_perc_im_flip
+
+        if self.perc_loss_lpips:
+            self.loss_perc_im = torch.sum(self.PerceptualLoss(self.recon_im[:b], self.input_im))
+            self.loss_perc_im_flip = torch.sum(self.PerceptualLoss(self.recon_im[b:], self.input_im))
+            self.loss_perc_im_log = []
+            self.loss_perc_im_weights = []
+        else:
+            loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
+            loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
+            self.loss_perc_im, self.loss_perc_im_log, self.loss_perc_im_weights  = loss_perc_im 
+            self.loss_perc_im_flip, _, _ = loss_perc_im_flip
+
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
