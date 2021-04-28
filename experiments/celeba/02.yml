@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 50
 batch_size: 15
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/02
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/celeba/02
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/02
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
