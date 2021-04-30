@@ -35,7 +35,6 @@ class Unsup3D():
         self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
-        self.perc_loss_abs = cfgs.get('perc_loss_abs', False)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -54,7 +53,6 @@ class Unsup3D():
             self.PerceptualLoss = lpips.LPIPS(net='alex').to(device=self.device)
         else:
             self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode).to(device=self.device)
-        self.loss_param_name = ['PerceptualLoss']
         # print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
 
 
@@ -70,14 +68,6 @@ class Unsup3D():
             optim_name = net_name.replace('net','optimizer')
             setattr(self, optim_name, optimizer)
             self.optimizer_names += [optim_name]
-        
-        if self.perc_loss_lpips:
-            for name in self.loss_param_name:
-                optimizer = self.make_optimizer(getattr(self, name))
-                optim_name = "optimizer_perc_loss"
-                setattr(self, optim_name, optimizer)
-                self.optimizer_names += [optim_name]
-
 
     def load_model_state(self, cp):
         for k in cp:
@@ -263,15 +253,11 @@ class Unsup3D():
 
 
         if self.perc_loss_lpips:
-            self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b], self.input_im))
-            self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:], self.input_im))
+            self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, self.input_im*2-1))
+            self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, self.input_im*2-1))
         else:
             self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
             self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-
-        if self.perc_loss_abs:
-            self.perc_im = abs(self.perc_im)
-            self.perc_im_flip = abs(self.perc_im_flip)
 
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
