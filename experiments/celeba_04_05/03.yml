@@ -2,9 +2,9 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 25
+batch_size: 35
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/03
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba_02/03
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba_04_05/03
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -28,13 +28,14 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0.1  # (-t,t) in 3D
 perc_loss_lpips: false
-lam_perc: 0.01 # 1
+lam_perc: 0.005 # 1
 perc_loss_mode: 4 # 0,1,2,3,4,5 => 0 only one feature map, 1 two feature map, 2 three feature maps, 3 four featmaps are compared
 lam_flip: 0.9
 lr: 0.0001
 spike_reduction: 0.1
 depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
+conf_map_enabled: false
 
 
 ## renderer

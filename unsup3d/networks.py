@@ -110,9 +110,6 @@ class DepthMapNet(nn.Module):
             nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
             nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
         if activation is not None:
             network += [activation()]
@@ -213,24 +210,30 @@ class ConfNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(nf*8, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
             nn.GroupNorm(16*4, nf*4),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
+            nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True)]
         self.network = nn.Sequential(*network)
 
         out_net1 = [
-            nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
-            nn.GroupNorm(16*2, nf*2),
-            nn.ReLU(inplace=True),
+            # nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
+            # nn.GroupNorm(16*2, nf*2),
+            # nn.ReLU(inplace=True),
             nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 128x128
-            nn.GroupNorm(16, nf),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf, 2, kernel_size=5, stride=1, padding=2, bias=False),  # 64x64
+            nn.ConvTranspose2d(nf, 2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 128x128
+            # nn.GroupNorm(16, nf),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),  # 64x64
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf, 2, kernel_size=4, stride=2, padding=1, bias=False),  
             nn.Softplus()]
         self.out_net1 = nn.Sequential(*out_net1)
 
-        out_net2 = [nn.Conv2d(nf*4, 2, kernel_size=3, stride=1, padding=1, bias=False),  # 16x16
+        out_net2 = [
+            nn.Conv2d(nf*2, 2, kernel_size=3, stride=1, padding=1, bias=False),  # 32x32
                     nn.Softplus()]
         self.out_net2 = nn.Sequential(*out_net2)
 
@@ -255,11 +258,7 @@ class PerceptualLoss(nn.Module):
             "4": 1,
             "5": 2
         }
-        # self.train_loss_weights = train_loss_weights
-        # if self.train_loss_weights:
-        #     self.loss_weights = nn.Parameter(torch.ones([output_dim_mode_dict[str(mode)],1], requires_grad=True))
-        # else:
-        #     self.loss_weights = [0]
+
         self.mode = mode
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
@@ -277,8 +276,6 @@ class PerceptualLoss(nn.Module):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
 
         if not requires_grad:
-            # for param in vgg_pretrained_features.parameters():
-            #     param.requires_grad = False
             for param in self.parameters():
                 param.requires_grad = False
         
@@ -288,7 +285,7 @@ class PerceptualLoss(nn.Module):
         out = (out - self.mean_rgb.view(1,3,1,1)) / self.std_rgb.view(1,3,1,1)
         return out
 
-    def __call__(self, im1, im2, mask=None, conf_sigma=None):
+    def __call__(self, im1, im2, conf_sigma=None):
         im = torch.cat([im1,im2], 0)
         im = self.normalize(im)  # normalize input
 
@@ -322,22 +319,7 @@ class PerceptualLoss(nn.Module):
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 loss = loss / (2*conf_sigma**2 +EPS) + (conf_sigma +EPS).log()
-            if mask is not None:
-                b, c, h, w = loss.shape
-                _, _, hm, wm = mask.shape
-                sh, sw = hm//h, wm//w
-                mask0 = nn.functional.avg_pool2d(mask, kernel_size=(sh,sw), stride=(sh,sw)).expand_as(loss)
-                loss = (loss * mask0).sum() / mask0.sum()
-            else:
-                loss = loss.mean()
+            loss = loss.mean()
             losses += [loss]
 
-        # if self.train_loss_weights:
-        #     losses = [losses[i]*self.loss_weights[i] for i in range(len(losses))]
-
-        # if self.normalized:
-        #     normalized_losses = utils.normalize_tensor(torch.tensor(losses))
-        #     return sum(normalized_losses)
-        # else:
         return sum(losses)
-        # return (sum(losses),losses,self.loss_weights)

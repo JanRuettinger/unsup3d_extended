@@ -2,9 +2,9 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 25
-# checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/03
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba_02/03
+batch_size: 35
+# checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/04
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba_04_05/04
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -35,6 +35,7 @@ lr: 0.0001
 spike_reduction: 0.1
 depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
+conf_map_enabled: false
 
 
 ## renderer
