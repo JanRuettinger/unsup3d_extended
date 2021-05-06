@@ -342,8 +342,8 @@ class Unsup3D():
             log_grid_image('Conf/conf_map_percl_flip', conf_map_percl_flip)
             logger.add_histogram('Conf/conf_sigma_percl_flip_hist', self.conf_sigma_percl[:,1:], total_iter)
 
-            logger.add_video('Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
-            logger.add_video('Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
+        logger.add_video('Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
+        logger.add_video('Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
 
         # visualize images and accuracy if gt is loaded
         if self.load_gt_depth:
