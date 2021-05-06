@@ -39,11 +39,11 @@ class Unsup3D():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=516, activation=None)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=1024)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
-        self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+        # self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
         self.network_names = [k for k in vars(self) if 'net' in k]
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
@@ -132,9 +132,10 @@ class Unsup3D():
         self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
 
         # depthmap_loaded = np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_maps_{b}/canon_depth_map_{0}.npy')
-        depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
-        depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
-        depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
+        depth_map_prior_path = os.path.join(os.path.dirname(__file__),f'depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')
+        depthmap_prior = torch.from_numpy(np.load(depth_map_prior_path)).to(self.device)
+        depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)[0,...]
+        # depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
         if self.depthmap_prior:
@@ -156,7 +157,7 @@ class Unsup3D():
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
-        self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
+        # self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
 
         ## predict lighting
         canon_light = self.netL(self.input_im).repeat(2,1)  # Bx4
@@ -181,7 +182,7 @@ class Unsup3D():
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.alpha_mask = recon_im[...,3].unsqueeze(1)
-        recon_im_mask_both = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
+        recon_im_mask_both = (recon_im[...,3] > 0).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
 
         ## loss function with mask and without conf map
