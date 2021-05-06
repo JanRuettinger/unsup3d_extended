@@ -181,7 +181,7 @@ class Unsup3D():
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.alpha_mask = recon_im[...,3].unsqueeze(1)
-        recon_im_mask_both = (recon_im[...,3] > 0).type(torch.float32).unsqueeze(1)
+        recon_im_mask_both = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
 
         ## loss function with mask and without conf map
