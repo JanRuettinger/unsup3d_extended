@@ -285,7 +285,7 @@ class PerceptualLoss(nn.Module):
         out = (out - self.mean_rgb.view(1,3,1,1)) / self.std_rgb.view(1,3,1,1)
         return out
 
-    def __call__(self, im1, im2, conf_sigma=None):
+    def __call__(self, im1, im2, mask=None,conf_sigma=None):
         im = torch.cat([im1,im2], 0)
         im = self.normalize(im)  # normalize input
 
@@ -319,7 +319,14 @@ class PerceptualLoss(nn.Module):
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 loss = loss / (2*conf_sigma**2 +EPS) + (conf_sigma +EPS).log()
-            loss = loss.mean()
+            if mask is not None:
+                b, c, h, w = loss.shape
+                _, _, hm, wm = mask.shape
+                sh, sw = hm//h, wm//w
+                mask0 = nn.functional.avg_pool2d(mask, kernel_size=(sh,sw), stride=(sh,sw)).expand_as(loss)
+                loss = (loss * mask0).sum() / mask0.sum()
+            else:
+                    loss = loss.mean()
             losses += [loss]
 
         return sum(losses)

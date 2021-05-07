@@ -36,6 +36,7 @@ class Unsup3D():
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
+        self.mask_mode =cfgs.get('mask_mode', 0)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -180,32 +181,78 @@ class Unsup3D():
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
-        self.alpha_mask = recon_im[...,3].unsqueeze(1)
-        recon_im_mask_both = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
+        self.alpha_mask = recon_im[...,3]
+        recon_im_mask = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
+        self.alpha_mask = self.alpha_mask.unsqueeze(1)
 
-        ## loss function with mask and without conf map
-        if self.conf_map_enabled:
-            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=self.conf_sigma_l1[:,:1])
-            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=self.conf_sigma_l1[:,1:])
-        else:
-            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=recon_im_mask_both[:b], conf_sigma=None)
-            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=recon_im_mask_both[b:], conf_sigma=None)
-      
-        detached_mask = recon_im_mask_both.detach()
-        masked_input_im = detached_mask[:b]*self.input_im + (1-torch.ones_like(detached_mask[:b])*detached_mask[:b])
+        recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]
+        detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
+        masked_input_im = detached_mask[:b]*self.input_im + (1-detached_mask[:b])
 
 
-        if self.perc_loss_lpips:
-            self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, masked_input_im*2-1))
-            self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, masked_input_im*2-1))
-        else:
+        if self.mask_mode == 0: # original mask implementation
+            ## loss function with mask and without conf map
             if self.conf_map_enabled:
-                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], masked_input_im,  conf_sigma=self.conf_sigma_percl[:,:1])
-                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],masked_input_im , conf_sigma=self.conf_sigma_percl[:,1:])
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
             else:
-                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], masked_input_im,  conf_sigma=None)
-                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],masked_input_im , conf_sigma=None)
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=None)
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=None)
+        
+
+            if self.perc_loss_lpips:
+                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, masked_input_im*2-1))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, masked_input_im*2-1))
+            else:
+                if self.conf_map_enabled:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
+                else:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im,mask=detached_mask[:b],conf_sigma=None)
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b],conf_sigma=None)
+        
+        elif self.mask_mode == 1: # filter out all fully transparent pixels
+            ## loss function with mask and without conf map
+            if self.conf_map_enabled:
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], masked_input_im, mask=None, conf_sigma=self.conf_sigma_l1[:,:1])
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], masked_input_im, mask=None, conf_sigma=self.conf_sigma_l1[:,1:])
+            else:
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], masked_input_im, mask=None, conf_sigma=None)
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], masked_input_im, mask=None, conf_sigma=None)
+        
+
+            if self.perc_loss_lpips:
+                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, masked_input_im*2-1))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, masked_input_im*2-1))
+            else:
+                if self.conf_map_enabled:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], masked_input_im, mask=None, conf_sigma=self.conf_sigma_percl[:,:1])
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],masked_input_im, mask=None, conf_sigma=self.conf_sigma_percl[:,1:])
+                else:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],masked_input_im, mask=None,conf_sigma=None)
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],masked_input_im, mask=None,conf_sigma=None)
+        
+        elif self.mask_mode == 2: # no mask 
+            ## loss function with mask and without conf map
+            if self.conf_map_enabled:
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=None, conf_sigma=self.conf_sigma_l1[:,:1])
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=None, conf_sigma=self.conf_sigma_l1[:,1:])
+            else:
+                self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=None, conf_sigma=None)
+                self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=None, conf_sigma=None)
+        
+
+            if self.perc_loss_lpips:
+                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, self.input_im*2-1))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, self.input_im*2-1))
+            else:
+                if self.conf_map_enabled:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=None, conf_sigma=self.conf_sigma_percl[:,:1])
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im, mask=None, conf_sigma=self.conf_sigma_percl[:,1:])
+                else:
+                    self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im, mask=None,conf_sigma=None)
+                    self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im, mask=None,conf_sigma=None)
 
 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
