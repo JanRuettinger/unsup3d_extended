@@ -202,8 +202,8 @@ class Unsup3D():
         
 
             if self.perc_loss_lpips:
-                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, masked_input_im*2-1))
-                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, masked_input_im*2-1))
+                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b].contiguous()*2-1, masked_input_im.contiguous()*2-1))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:].contiguous()*2-1, masked_input_im.contiguous()*2-1))
             else:
                 if self.conf_map_enabled:
                     self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
@@ -244,8 +244,8 @@ class Unsup3D():
         
 
             if self.perc_loss_lpips:
-                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b]*2-1, self.input_im*2-1))
-                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:]*2-1, self.input_im*2-1))
+                self.loss_perc_im = torch.mean(self.PerceptualLoss(self.recon_im[:b].contiguous()*2-1, self.input_im.contiguous()*2-1))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss(self.recon_im[b:].contiguous()*2-1, self.input_im.contiguous()*2-1))
             else:
                 if self.conf_map_enabled:
                     self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=None, conf_sigma=self.conf_sigma_percl[:,:1])
