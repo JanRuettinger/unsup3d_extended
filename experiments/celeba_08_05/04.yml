@@ -36,7 +36,7 @@ spike_reduction: 0.1
 depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
 conf_map_enabled: false
-mask_mode: 1
+mask_mode: 2
 
 
 ## renderer
