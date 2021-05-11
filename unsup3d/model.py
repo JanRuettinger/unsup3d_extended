@@ -37,6 +37,7 @@ class Unsup3D():
         self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
         self.mask_mode =cfgs.get('mask_mode', 0)
+        self.mask_fully_transparent =cfgs.get('mask_fully_transparent', True)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -182,16 +183,20 @@ class Unsup3D():
         recon_im = self.renderer(self.meshes, self.canon_albedo, self.view, self.lighting)
         self.recon_im = recon_im[...,:3]
         self.alpha_mask = recon_im[...,3]
-        recon_im_mask = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
+
+        if self.mask_fully_transparent == True:
+            self.recon_im_mask = (self.alpha_mask > 0).type(torch.float32).unsqueeze(1)
+        else:
+            self.recon_im_mask = (self.alpha_mask).type(torch.float32).unsqueeze(1)
         self.recon_im = self.recon_im.permute(0,3,1,2)
         self.alpha_mask = self.alpha_mask.unsqueeze(1)
 
-        recon_im_mask_both = recon_im_mask[:b] * recon_im_mask[b:]
+        recon_im_mask_both = self.recon_im_mask[:b] * self.recon_im_mask[b:]
         detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
         masked_input_im = detached_mask[:b]*self.input_im + (1-detached_mask[:b])
 
 
-        if self.mask_mode == 0: # original mask implementation
+        if self.mask_mode == 0: # smoothed mask
             ## loss function with mask and without conf map
             if self.conf_map_enabled:
                 self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
@@ -212,7 +217,7 @@ class Unsup3D():
                     self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im,mask=detached_mask[:b],conf_sigma=None)
                     self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b],conf_sigma=None)
         
-        elif self.mask_mode == 1: # filter out all fully transparent pixels
+        elif self.mask_mode == 1: # non transparent pixels
             ## loss function with mask and without conf map
             if self.conf_map_enabled:
                 self.loss_l1_im = self.photometric_loss(self.recon_im[:b], masked_input_im, mask=None, conf_sigma=self.conf_sigma_l1[:,:1])
