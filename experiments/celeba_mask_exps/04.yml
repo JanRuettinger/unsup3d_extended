@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 35
+batch_size: 30
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba_mask_exps/non_transparent_with_lpips
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba_mask_exps/non_transparent_with_lpips
 save_checkpoint_freq: 10
