@@ -32,7 +32,6 @@ class Unsup3D():
         self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
         self.depthmap_prior = cfgs.get('depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
-        self.perc_loss_mode = cfgs.get('perc_loss_mode', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.perc_loss_lpips = cfgs.get('perc_loss_lpips', False) 
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
@@ -55,7 +54,7 @@ class Unsup3D():
         if self.perc_loss_lpips:
             self.PerceptualLoss = lpips.LPIPS(net='vgg').to(device=self.device)
         else:
-            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.perc_loss_mode).to(device=self.device)
+            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False).to(device=self.device)
         # print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
 
 

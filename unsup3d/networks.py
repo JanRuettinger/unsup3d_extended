@@ -243,23 +243,13 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False, mode=4):
+    def __init__(self, requires_grad=False):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
         # self.loss_weights = [2.5, 0.4, 0.13, 0.43]
-        output_dim_mode_dict = {
-            "0": 1,
-            "1": 2,
-            "2": 3,
-            "3": 4,
-            "4": 1,
-            "5": 2
-        }
-
-        self.mode = mode
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -300,22 +290,8 @@ class PerceptualLoss(nn.Module):
         f = self.slice4(f)
         feats += [torch.chunk(f, 2, dim=0)]
 
-        if self.mode == 0:
-            feats = feats[:1]
-        if self.mode == 1:
-            feats = feats[:2]
-        if self.mode == 2:
-            feats = feats[:3]
-        if self.mode == 3:
-            feats = feats[:4]
-        if self.mode == 4:
-            feats = feats[2:3]
-        if self.mode == 5:
-            feats = feats[1:3]
-
-
         losses = []
-        for f1, f2 in feats:  # use relu3_3 features only
+        for f1, f2 in feats[2:3]:  # use relu3_3 features only
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 loss = loss / (2*conf_sigma**2 +EPS) + (conf_sigma +EPS).log()
@@ -323,7 +299,8 @@ class PerceptualLoss(nn.Module):
                 b, c, h, w = loss.shape
                 _, _, hm, wm = mask.shape
                 sh, sw = hm//h, wm//w
-                mask0 = nn.functional.avg_pool2d(mask, kernel_size=(sh,sw), stride=(sh,sw)).expand_as(loss)
+                mask0 = nn.functional.avg_pool2d(mask, kernel_size=(sh,sw), stride=(sh,sw))
+                mask0 = mask0.expand_as(loss)
                 loss = (loss * mask0).sum() / mask0.sum()
             else:
                     loss = loss.mean()
