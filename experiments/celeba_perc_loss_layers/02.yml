@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 10
+batch_size: 35
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/debug
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/2
 save_checkpoint_freq: 10
@@ -35,9 +35,9 @@ spike_reduction: 0.1
 depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
 conf_map_enabled: no
-mask_mode: 1
+mask_mode: 0
 mask_fully_transparent: true
-mode_perc_loss: 0
+mode_perc_loss: 1
 
 
 ## renderer
