@@ -37,6 +37,7 @@ class Unsup3D():
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
         self.mask_mode =cfgs.get('mask_mode', 0)
         self.mask_fully_transparent =cfgs.get('mask_fully_transparent', True)
+        self.mode_perc_loss =cfgs.get('mode_perc_loss', 0)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -54,7 +55,7 @@ class Unsup3D():
         if self.perc_loss_lpips:
             self.PerceptualLoss = lpips.LPIPS(net='vgg').to(device=self.device)
         else:
-            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False).to(device=self.device)
+            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False, mode=self.mode_perc_loss).to(device=self.device)
         # print(f"Number of parameters:{sum(p.numel() for p in self.PerceptualLoss.parameters() if p.requires_grad)}")
 
 
