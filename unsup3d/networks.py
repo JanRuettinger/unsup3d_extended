@@ -243,12 +243,14 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False):
+    def __init__(self, requires_grad=False, mode=0):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
+        self.mode = mode
+
         # self.loss_weights = [2.5, 0.4, 0.13, 0.43]
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
@@ -256,6 +258,9 @@ class PerceptualLoss(nn.Module):
         self.slice2 = nn.Sequential()
         self.slice3 = nn.Sequential()
         self.slice4 = nn.Sequential()
+        self.slice5 = nn.Sequential()
+        self.slice6 = nn.Sequential()
+        self.slice7 = nn.Sequential()
         for x in range(4):
             self.slice1.add_module(str(x), vgg_pretrained_features[x])
         for x in range(4, 9):
@@ -264,6 +269,12 @@ class PerceptualLoss(nn.Module):
             self.slice3.add_module(str(x), vgg_pretrained_features[x])
         for x in range(16, 23):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(23, 26):
+            self.slice5.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(26, 28):
+            self.slice6.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(28, 30):
+            self.slice7.add_module(str(x), vgg_pretrained_features[x])
 
         if not requires_grad:
             for param in self.parameters():
@@ -289,9 +300,25 @@ class PerceptualLoss(nn.Module):
         feats += [torch.chunk(f, 2, dim=0)]
         f = self.slice4(f)
         feats += [torch.chunk(f, 2, dim=0)]
+        f = self.slice5(f)
+        feats += [torch.chunk(f, 2, dim=0)]
+        f = self.slice6(f)
+        feats += [torch.chunk(f, 2, dim=0)]
+        f = self.slice7(f)
+        feats += [torch.chunk(f, 2, dim=0)]
 
         losses = []
-        for f1, f2 in feats[2:3]:  # use relu3_3 features only
+        selected_feats = []
+        if self.mode == 0:
+            selected_feats = feats[2:3]
+        if self.mode == 1:
+            selected_feats = feats[3:4]
+        if self.mode == 2:
+            selected_feats = feats[4:5]
+        if self.mode == 3:
+            selected_feats = feats[5:6]
+
+        for f1, f2 in selected_feats:  # use relu3_3 features only
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 loss = loss / (2*conf_sigma**2 +EPS) + (conf_sigma +EPS).log()
