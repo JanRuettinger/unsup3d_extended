@@ -167,6 +167,7 @@ class Unsup3D():
         canon_light_dxy = canon_light[:,2:]
         self.canon_light_d = torch.cat([canon_light_dxy, -torch.ones(b*2,1).to(self.input_im.device)], 1)
         self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
+        self.canon_light_b = torch.clamp(self.canon_light_b, min=-0.8, max=1)
         self.lighting = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
         # self.canon_lighting = torch.cat([self.canon_light_a, self.canon_light_b, self.canon_light_d], 1)
 

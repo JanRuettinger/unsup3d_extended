@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 100
 batch_size: 35
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/debug
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/3
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_layer_conf_map/mode_2_conf_map_enabled
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -28,13 +28,13 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 perc_loss_lpips: false
-lam_perc: 0.01 # 1
-lam_flip: 0.9
+lam_perc: 1 # 1
+lam_flip: 0.5
 lr: 0.0001
 spike_reduction: 0.1
 depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
-conf_map_enabled: false
+conf_map_enabled: true
 mask_mode: 0
 mask_fully_transparent: true
 mode_perc_loss: 2
