@@ -267,13 +267,13 @@ class PerceptualLoss(nn.Module):
             self.slice2.add_module(str(x), vgg_pretrained_features[x])
         for x in range(9, 16):
             self.slice3.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(16, 23):
+        for x in range(16, 19):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(23, 26):
+        for x in range(19, 21):
             self.slice5.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(26, 28):
+        for x in range(21, 23):
             self.slice6.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(28, 30):
+        for x in range(23, 26):
             self.slice7.add_module(str(x), vgg_pretrained_features[x])
 
         if not requires_grad:
@@ -320,6 +320,7 @@ class PerceptualLoss(nn.Module):
 
         for f1, f2 in selected_feats:  # use relu3_3 features only
             loss = (f1-f2)**2
+            print(loss.shape)
             if conf_sigma is not None:
                 dim_loss = loss.shape
                 conf_sigma = torch.nn.functional.interpolate(conf_sigma, size=dim_loss[-1], mode="nearest")
