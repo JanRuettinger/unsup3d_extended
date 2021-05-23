@@ -37,7 +37,7 @@ depthmap_prior_sigma: 12 #0, 5, 12
 conf_map_enabled: true
 mask_mode: 0
 mask_fully_transparent: true
-mode_perc_loss: 2
+mode_perc_loss: 3
 
 
 ## renderer
