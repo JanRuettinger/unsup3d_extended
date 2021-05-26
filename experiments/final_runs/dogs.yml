@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 35
+batch_size: 25
 # checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/debug
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/dogs
 save_checkpoint_freq: 10

@@ -320,7 +320,6 @@ class PerceptualLoss(nn.Module):
 
         for f1, f2 in selected_feats:  # use relu3_3 features only
             loss = (f1-f2)**2
-            print(loss.shape)
             if conf_sigma is not None:
                 dim_loss = loss.shape
                 conf_sigma = torch.nn.functional.interpolate(conf_sigma, size=dim_loss[-1], mode="nearest")
