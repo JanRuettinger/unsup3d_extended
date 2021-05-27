@@ -2,9 +2,9 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 10
-checkpoint_dir: /scratch/local/ssd/janhr/results/final/cat_01
-# checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/cats
+batch_size: 25
+# checkpoint_dir: /scratch/local/ssd/janhr/results/final/cat_01
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/cats_02
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2
 resume: false
@@ -17,8 +17,8 @@ image_size: 128
 depthmap_size: 32
 crop: 170 # 64 for debug_2 170 for normal
 load_gt_depth: false
-train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
-# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_combined
+# train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/cat_combined
 
 ## model
 model_name: unsup3d_cats
@@ -31,8 +31,8 @@ perc_loss_lpips: false
 lam_perc: 1 # 1
 lam_flip: 0.5
 lr: 0.0001
-spike_reduction: 1.0
-depthmap_prior: false
+spike_reduction: 0.1
+depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
 conf_map_enabled: true
 mask_mode: 0
