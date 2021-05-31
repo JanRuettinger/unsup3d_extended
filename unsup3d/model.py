@@ -26,7 +26,7 @@ class Unsup3D():
         self.lam_flip_start_epoch = cfgs.get('lam_flip_start_epoch', 0)
         self.lr = cfgs.get('lr', 1e-4)
         self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
-        self.depthmap_prior = cfgs.get('depthmap_prior', True)
+        self.use_depthmap_prior = cfgs.get('depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
@@ -120,14 +120,13 @@ class Unsup3D():
         ## predict canonical depth
         self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
 
-        # weak prior for the depth map ensures that the depth map sticks out of the image plane
-        depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
-        depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
-        depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
-
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-        if self.depthmap_prior:
-            self.canon_depth = self.canon_depth + 1/self.spike_reduction*depthmap_prior
+        if self.use_depthmap_prior:
+            # weak prior for the depth map ensures that the depth map sticks out of the image plane
+            depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
+            depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
+            depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
+            self.canon_depth = self.canon_depth + 1/self.spike_reduction*0.5*depthmap_prior
         if self.spike_reduction:
             self.canon_depth = self.canon_depth*self.spike_reduction
         self.canon_depth = self.canon_depth.tanh()
@@ -163,7 +162,6 @@ class Unsup3D():
             self.view[:,:3] *math.pi/180 *self.xyz_rotation_range,
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
-
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
