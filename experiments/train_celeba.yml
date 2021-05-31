@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 100
 batch_size: 10
-checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/debug
+checkpoint_dir: /scratch/local/ssd/janhr/results/celeba/debug_renderer
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/lpips
 save_checkpoint_freq: 10
 keep_num_checkpoint: 2

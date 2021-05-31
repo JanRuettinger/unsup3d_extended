@@ -3,10 +3,7 @@ import torch.nn as nn
 import torchvision
 from . import utils
 
-
 EPS = 1e-7
-
-
 class Encoder(nn.Module):
     def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
         super(Encoder, self).__init__()
@@ -55,40 +52,6 @@ class DepthMapNet(nn.Module):
             nn.ReLU(inplace=True)]
         ## upsampling
         network += [
-
-            # 64x64 depthmap
-            # nn.ConvTranspose2d(zdim, nf*8, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf*8, nf*8, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.ReLU(inplace=True),
-            # nn.ConvTranspose2d(nf*8, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 4x4 -> 8x8
-            # nn.GroupNorm(16*4, nf*4),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf*4, nf*4, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.GroupNorm(16*4, nf*4),
-            # nn.ReLU(inplace=True),
-            # nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
-            # nn.GroupNorm(16*2, nf*2),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf*2, nf*2, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.GroupNorm(16*2, nf*2),
-            # nn.ReLU(inplace=True),
-            # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
-            # nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
-            # nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
-
-
             # 32x32 depthmap
             nn.ConvTranspose2d(zdim, nf*5, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
             nn.ReLU(inplace=True),
@@ -217,18 +180,10 @@ class ConfNet(nn.Module):
         self.network = nn.Sequential(*network)
 
         out_net1 = [
-            # nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
-            # nn.GroupNorm(16*2, nf*2),
-            # nn.ReLU(inplace=True),
             nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(nf, 2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 128x128
-            # nn.GroupNorm(16, nf),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),  # 64x64
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf, 2, kernel_size=4, stride=2, padding=1, bias=False),  
             nn.Softplus()]
         self.out_net1 = nn.Sequential(*out_net1)
 
@@ -243,15 +198,12 @@ class ConfNet(nn.Module):
 
 
 class PerceptualLoss(nn.Module):
-    def __init__(self, requires_grad=False, mode=0):
+    def __init__(self, requires_grad=False):
         super(PerceptualLoss, self).__init__()
         mean_rgb = torch.FloatTensor([0.485, 0.456, 0.406])
         std_rgb = torch.FloatTensor([0.229, 0.224, 0.225])
         self.register_buffer('mean_rgb', mean_rgb)
         self.register_buffer('std_rgb', std_rgb)
-        self.mode = mode
-
-        # self.loss_weights = [2.5, 0.4, 0.13, 0.43]
 
         vgg_pretrained_features = torchvision.models.vgg16(pretrained=True).features
         self.slice1 = nn.Sequential()
@@ -308,17 +260,9 @@ class PerceptualLoss(nn.Module):
         feats += [torch.chunk(f, 2, dim=0)]
 
         losses = []
-        selected_feats = []
-        if self.mode == 0:
-            selected_feats = feats[2:3]
-        if self.mode == 1:
-            selected_feats = feats[3:4]
-        if self.mode == 2:
-            selected_feats = feats[4:5]
-        if self.mode == 3:
-            selected_feats = feats[5:6]
+        selected_feats = feats[2:3] # use relu3_3 features only, works best
 
-        for f1, f2 in selected_feats:  # use relu3_3 features only
+        for f1, f2 in selected_feats:  
             loss = (f1-f2)**2
             if conf_sigma is not None:
                 dim_loss = loss.shape
@@ -335,4 +279,4 @@ class PerceptualLoss(nn.Module):
                     loss = loss.mean()
             losses += [loss]
 
-        return sum(losses)
+        return sum(losses) # use mean in case you calcualte the loss based on several feature maps

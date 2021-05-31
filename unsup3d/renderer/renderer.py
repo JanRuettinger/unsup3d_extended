@@ -19,29 +19,6 @@ from pytorch3d.renderer import (
 )
 from . import utils
 
-def get_printer(msg):
-    """This function returns a printer function, that prints information about a  tensor's
-    gradient. Used by register_hook in the backward pass.
-    """
-    def printer(tensor):
-        print("Was geht?")
-        if tensor.nelement() == 1:
-            print(f"{msg} {tensor}")
-        else:
-            print(f"{msg} shape: {tensor.shape}"
-                  f" max: {tensor.max()} min: {tensor.min()}"
-                  f" mean: {tensor.mean()}")
-    return printer
-
-
-def register_hook(tensor, msg):
-    """Utility function to call retain_grad and Pytorch's register_hook
-    in a single line
-    """
-    tensor.retain_grad()
-    tensor.register_hook(get_printer(msg))
-
-
 class Renderer(nn.Module):
     def __init__(self, cfgs):
         super().__init__()
@@ -104,7 +81,6 @@ class Renderer(nn.Module):
     
 
     def _get_transformed_meshes(self, meshes, view):
-        # rotate mesh with pytorch functions
         # rotate non flipped mesh in one direction and flipped version in other direction
 
         R = pytorch3d.transforms.euler_angles_to_matrix(view[:,:3], convention="XYZ")
@@ -121,18 +97,10 @@ class Renderer(nn.Module):
         new_mesh_verts = tsf.transform_points(meshes_verts)
         transformed_meshes = meshes.update_padded(new_mesh_verts) 
 
-        # np.save(f"check/meshes_verts", meshes_verts.detach().cpu().numpy())
-        # filehandler = open(f"check/meshes.pkl", 'wb') 
-        # pickle.dump(meshes.detach().cpu(), filehandler)
-        # filehandler = open(f"check/meshes_transformed.pkl", 'wb') 
-        # pickle.dump(transformed_meshes.detach().cpu(), filehandler)
-        # np.save(f"check/meshes", meshes.detach().cpu())
-        # np.save(f"check/meshes_transformed", transformed_meshes.detach().cpu())
-        
         return transformed_meshes.to(self.device)
 
     def create_meshes_from_depth_map(self,depth_map):
-        grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K)
+        grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K, self.cameras)
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
         return meshes
 
@@ -140,7 +108,7 @@ class Renderer(nn.Module):
     def forward(self, meshes, albedo_maps, view, lighting):
         textures = self._get_textures(albedo_maps)
         lights = self._get_lights(lighting)
-        transformed_meshes = self._get_transformed_meshes(meshes, view)
+        transformed_meshes = self._get_transformed_meshes(meshes, view) # we rotate the mesh instead of the camera since it's easier
 
         # replace texture at mesh
         transformed_meshes.textures = textures
