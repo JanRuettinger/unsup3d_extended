@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 3
+batch_size: 35
 # checkpoint_dir: results/celeba
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/celeba
 save_checkpoint_freq: 5
@@ -27,7 +27,7 @@ max_depth: 1.1
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 2.5 # 1
+lam_perc: 1 # 1
 lam_flip: 0.9
 lr: 0.0001
 spike_reduction: 0.1
