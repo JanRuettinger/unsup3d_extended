@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 10
+batch_size: 35
 # checkpoint_dir: results/celeba
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/celeba_no_conf_map
 save_checkpoint_freq: 1
