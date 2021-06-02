@@ -33,7 +33,8 @@ class Unsup3D():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        # self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, activation=None)
         self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
