@@ -36,6 +36,7 @@ def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
 class BasicBlock(nn.Module):
     expansion = 1
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
@@ -73,9 +74,10 @@ class BasicBlock(nn.Module):
         out += identity
         out = self.relu(out)
         return out
-class DepthMap2Net(nn.Module):
+
+class DepthMapResNet(nn.Module):
     def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
-        super(DepthMap2Net, self).__init__()
+        super(DepthMapResNet, self).__init__()
         network = [
             nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128 -> 64x64
             nn.GroupNorm(16, nf),
@@ -88,9 +90,9 @@ class DepthMap2Net(nn.Module):
             nn.Conv2d(nf*2, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
             nn.GroupNorm(16*4, nf*4),
             # nn.InstanceNorm2d(nf*2),
-            # nn.LeakyReLU(0.2, inplace=True),
-            # nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
-            # nn.GroupNorm(16*8, nf*8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.GroupNorm(16*8, nf*8),
             # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
             # BasicBlock(nf*4, nf*8, norm_layer=nn.InstanceNorm2d),
@@ -114,9 +116,9 @@ class DepthMap2Net(nn.Module):
             # nn.GroupNorm(16, nf),
             # nn.BatchNorm2d(nf),
             # nn.ReLU(inplace=True),
-            # nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
-            # nn.GroupNorm(16*2, nf*2),
-            # nn.ReLU(inplace=True),
+            nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*2, nf*2),
+            nn.ReLU(inplace=True),
             # nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
             # # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
             # # nn.GroupNorm(16, nf),
@@ -130,17 +132,14 @@ class DepthMap2Net(nn.Module):
             # # nn.GroupNorm(16, nf),
             # # nn.BatchNorm2d(nf),
             # # nn.ReLU(inplace=True),
-            nn.Conv2d(nf*4, nf*4, kernel_size=5, stride=1, padding=2, bias=False),
-            nn.GroupNorm(16*4, nf*2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf*2, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
-            nn.GroupNorm(16*2, nf),
+            nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
             nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False),
             ]
         if activation is not None:
             network += [activation()]
-            self.network = nn.Sequential(*network)
+        self.network = nn.Sequential(*network)
     def forward(self, input):
         return self.network(input)
 

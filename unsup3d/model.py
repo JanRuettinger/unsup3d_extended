@@ -35,7 +35,7 @@ class Unsup3D():
 
         ## networks and optimizers
         if self.depthmap_mode == 'resnet':
-            self.netD = networks.DepthMap2Net(cin=3, cout=1, nf=64,activation=None)
+            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
         else:
             self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
         self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
