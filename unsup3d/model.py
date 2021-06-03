@@ -30,10 +30,14 @@ class Unsup3D():
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
+        self.depthmap_mode = cfgs.get('depth_network', 'resnet')
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, zdim=256, activation=None)
+        if self.depthmap_mode == 'resnet':
+            self.netD = networks.DepthMap2Net(cin=3, cout=1, nf=64,activation=None)
+        else:
+            self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
         self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)

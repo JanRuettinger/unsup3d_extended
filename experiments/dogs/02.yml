@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 120
 batch_size: 35
 # checkpoint_dir: results/cat
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/with_confmap
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/with_confmap_1x1_depthmap
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
