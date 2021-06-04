@@ -1,7 +1,6 @@
-import os
+import os, json
 import glob
 from datetime import datetime
-import numpy as np
 import torch
 from . import meters
 from . import utils
@@ -104,6 +103,7 @@ class Trainer():
         if self.use_logger:
             from tensorboardX import SummaryWriter
             self.logger = SummaryWriter(os.path.join(self.checkpoint_dir, 'logs', datetime.now().strftime("%Y%m%d-%H%M%S")))
+            self.logger.add_text("config", json.dumps(self.cfgs))
 
             ## cache one batch for visualization
             self.viz_input = self.val_loader.__iter__().__next__()
