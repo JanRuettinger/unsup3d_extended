@@ -1,7 +1,7 @@
 ## train celeba
 ## trainer
 run_train: true
-num_epochs: 120
+num_epochs: 40
 batch_size: 25
 # checkpoint_dir: results/celeba
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/faces_no_conf_map_resnet_depthmap
