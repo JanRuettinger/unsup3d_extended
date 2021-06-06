@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 40
 batch_size: 25
 # checkpoint_dir: results/celeba
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/faces_conf_map_1x1_depthmap
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/faces_conf_map_1x1_depthmap_small_perc_loss
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -28,12 +28,13 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 0.1 # 1
+increase_lam_perc: 100000
 lam_flip: 0.9
 lr: 0.0001
 spike_reduction: 0.1
 use_depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
-conf_map_enabled: false
+conf_map_enabled: true
 depth_network: old
 
 

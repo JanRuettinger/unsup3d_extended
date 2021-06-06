@@ -31,6 +31,7 @@ class Unsup3D():
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
+        self.increase_lam_perc = cfgs.get('increase_lam_perc', 1000)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -190,6 +191,9 @@ class Unsup3D():
             self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=None)
             self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im,mask=detached_mask[:b],conf_sigma=None)
             self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b],conf_sigma=None)
+        
+        if iter > self.increase_lam_perc:
+            self.lam_perc = 1
         
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
