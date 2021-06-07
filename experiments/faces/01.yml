@@ -29,7 +29,7 @@ xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 0.1 # 1
 use_lpips: false
-increase_lam_perc: 2000
+increase_lam_perc: 100000
 lam_flip: 0.9
 lr: 0.0001
 spike_reduction: 0.1
