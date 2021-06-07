@@ -37,8 +37,6 @@ use_depthmap_prior: true
 depthmap_prior_sigma: 12 #0, 5, 12
 conf_map_enabled: true
 depth_network: resnet
-t
-
 
 ## renderer
 rot_center_depth: 1.0
