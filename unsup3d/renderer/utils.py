@@ -39,11 +39,11 @@ def get_grid(b, H, W, normalize=True):
 
 def depth_to_3d_grid(depth, inv_K, cameras):
     b, h, w = depth.shape
-    grid_2d = get_grid(b, h, w, normalize=False).to(depth.device)  # Nxhxwx2
+    grid_2d = get_grid(b, h, w, normalize=True).to(depth.device)  # Nxhxwx2
     depth = depth.unsqueeze(-1)
     grid_3d = torch.cat((grid_2d, depth), dim=3)
-    # grid_3d = cameras.unproject_points(grid_3d.reshape(b,h*w,-1), world_coordinates=True)
-    grid_3d = grid_3d.matmul(inv_K.transpose(2,1)) * depth
+    grid_3d = cameras.unproject_points(grid_3d.reshape(b,h*w,-1), world_coordinates=True)
+    # grid_3d = grid_3d.matmul(inv_K.transpose(2,1)) * depth
     # np.save("depth", depth.cpu().detach().numpy())
     # np.save("grid_2d", grid_2d.cpu().detach().numpy())
     # np.save("grid_3d", grid_3d.cpu().detach().numpy())
