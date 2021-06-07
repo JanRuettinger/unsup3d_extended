@@ -239,6 +239,11 @@ class Unsup3D():
         self.shading_img_side_view = self.renderer(self.meshes, white_albedo,side_view,new_light)
         self.shading_img_side_view = self.shading_img_side_view[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
+        # sude view zoomed out
+        side_view_zoom_out = utils.get_side_view(self.view, zoom_mode=1)
+        self.shading_img_side_view_zoom_out = self.renderer(self.meshes, white_albedo,side_view_zoom_out,new_light)
+        self.shading_img_side_view_zoom_out = self.shading_img_side_view_zoom_out[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+
         # render rotations for shadding image
         num_rotated_frames = 12
         self.rotated_views = utils.calculate_views_for_360_video(self.view, num_frames=num_rotated_frames).to(self.device)
@@ -266,6 +271,7 @@ class Unsup3D():
         alpha_mask = self.alpha_mask[:b0].detach().cpu()
         shading_im = self.shading_img[:b0].detach().cpu()
         shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
+        shading_im_side_view_zoom_out = self.shading_img_side_view_zoom_out[:b0].detach().cpu()
         canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
         canon_depth_raw = self.canon_depth_raw[:b0].flip(1).detach().unsqueeze(1).cpu() /2.+0.5 # flip(1) is necessary since pytorch3d uses different y axis orientation
         canon_depth = ((self.canon_depth[:b0].flip(1) -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
@@ -309,6 +315,7 @@ class Unsup3D():
         log_grid_image('Depth/canonical_depth', canon_depth)
         log_grid_image('Depth/diffuse_shading', shading_im)
         log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
+        log_grid_image('Depth/diffuse_shading_side_view_zoom_out', shading_im_side_view_zoom_out)
 
         logger.add_histogram('Image/canonical_albedo_hist', canon_albedo, total_iter)
 

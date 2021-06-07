@@ -194,15 +194,26 @@ def calculate_views_for_360_video(original_view, num_frames=8):
     
     return torch.stack(views)
 
-def get_side_view(original_view):
-    new_view = original_view.detach().clone()
-    new_view[:,0] = 0 # rotation around x axis
-    new_view[:,1] = -np.pi/2 # rotation around y axis
-    new_view[:,2] = 0# rotation around z axis
-    new_view[:,3] = 0 #x 
-    new_view[:,4] = 0 #y
-    new_view[:,5] = 0.1#z zoom out a little bit
-    return new_view
+def get_side_view(original_view, zoom_mode=0):
+    if zoom_mode == 0:
+        new_view = original_view.detach().clone()
+        new_view[:,0] = 0 # rotation around x axis
+        new_view[:,1] = -np.pi/2 # rotation around y axis
+        new_view[:,2] = 0# rotation around z axis
+        new_view[:,3] = 0 #x 
+        new_view[:,4] = 0 #y
+        new_view[:,5] = 0 #z zoom out a little bit
+        return new_view
+    if zoom_mode == 1:
+        new_view = original_view.detach().clone()
+        new_view[:,0] = 0 # rotation around x axis
+        new_view[:,1] = -np.pi/2 # rotation around y axis
+        new_view[:,2] = 0# rotation around z axis
+        new_view[:,3] = 0.025 #x 
+        new_view[:,4] = 0 #y
+        new_view[:,5] = 0.15 #z zoom out a little bit
+        return new_view
+
 
 def get_gaussian_like_blub(kernel_size=32):
     sigma = 4
