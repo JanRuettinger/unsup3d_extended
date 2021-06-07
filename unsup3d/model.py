@@ -6,6 +6,7 @@ import torchvision
 from . import networks
 from . import utils
 from .renderer import Renderer
+import lpips
 
 EPS = 1e-7
 
@@ -32,6 +33,7 @@ class Unsup3D():
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
         self.increase_lam_perc = cfgs.get('increase_lam_perc', 1000)
+        self.use_lpips = cfgs.get('use_lpips', False)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -49,7 +51,11 @@ class Unsup3D():
             lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
 
         ## init perc loss network
-        self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False).to(device=self.device)
+        if self.use_lpips == True:
+            loss_fn = lpips.LPIPS(net='alex')
+            self.PerceptualLoss = loss_fn.to(device=self.device)
+        else:
+            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False).to(device=self.device)
 
         ## depth rescaler: -1~1 -> min_deph~max_deph
         self.depth_rescaler = lambda d : (1+d)/2 *self.max_depth + (1-d)/2 *self.min_depth
@@ -184,8 +190,13 @@ class Unsup3D():
         if self.conf_map_enabled:
             self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
             self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
-            self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
-            self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
+        
+            if self.use_lpips:
+                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+            else:
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
         else:
             self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=None)
             self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=None)
