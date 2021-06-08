@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 40
 batch_size: 25
 # checkpoint_dir: results/celeba
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/faces_conf_map_resnet_small_perc_loss_increasing
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/faces_conf_map_resnet_small_perc_loss_unproject
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -29,7 +29,7 @@ xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 0.1 # 1
 use_lpips: false
-increase_lam_perc: 100000
+lam_perc_increase_start_epoch: 1000
 lam_flip: 0.9
 lr: 0.0001
 spike_reduction: 0.1
