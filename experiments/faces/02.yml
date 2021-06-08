@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 40
-batch_size: 25
+batch_size: 15
 # checkpoint_dir: results/celeba
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results_stable/faces_4_faces
 save_checkpoint_freq: 5
