@@ -27,7 +27,7 @@ class Unsup3D():
         self.lam_flip_start_epoch = cfgs.get('lam_flip_start_epoch', 0)
         self.lr = cfgs.get('lr', 1e-4)
         self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
-        self.use_depthmap_prior = cfgs.get('depthmap_prior', True)
+        self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
@@ -145,8 +145,8 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
@@ -203,7 +203,7 @@ class Unsup3D():
             self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im,mask=detached_mask[:b],conf_sigma=None)
             self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b],conf_sigma=None)
         
-        self.lam_perc = 1 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
+        self.lam_perc = 0.5 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
 

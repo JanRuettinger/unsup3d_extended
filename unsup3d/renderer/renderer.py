@@ -30,6 +30,7 @@ class Renderer(nn.Module):
         self.fov = cfgs.get('fov', 10)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
         blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
+        self.num_faces_per_sqaure = cfgs.get('num_faces_per_square', 4)
         self.blend_params = pytorch3d.renderer.blending.BlendParams(sigma=blend_param_sigma, gamma=blend_param_gamma)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
@@ -92,7 +93,7 @@ class Renderer(nn.Module):
 
     def create_meshes_from_depth_map(self,depth_map):
         grid_3d = utils.depth_to_3d_grid(depth_map, self.cameras)
-        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
+        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device, self.num_faces_per_sqaure)
         return meshes
 
 
