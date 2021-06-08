@@ -36,15 +36,6 @@ class Renderer(nn.Module):
         init_verts, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
-        fx = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
-        fy = (self.depthmap_size)/2/(math.tan(self.fov/2 *math.pi/180))
-        cx = (self.depthmap_size)/2
-        cy = (self.depthmap_size)/2
-        K = [[fx, 0., cx],
-             [0., fy, cy],
-             [0., 0., 1.]]
-        K = torch.FloatTensor(K).to(self.device)
-        self.inv_K = torch.inverse(K).unsqueeze(0)
 
     def _create_image_renderer(self):
         raster_settings = self._get_rasterization_settings()
@@ -100,7 +91,7 @@ class Renderer(nn.Module):
         return transformed_meshes.to(self.device)
 
     def create_meshes_from_depth_map(self,depth_map):
-        grid_3d = utils.depth_to_3d_grid(depth_map, self.inv_K, self.cameras)
+        grid_3d = utils.depth_to_3d_grid(depth_map, self.cameras)
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
         return meshes
 
