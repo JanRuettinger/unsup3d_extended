@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 40
 batch_size: 10
 # checkpoint_dir: results/celeba
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results_stable/faces_no_depthmap_prior
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results_fix/faces_no_depthmap_prior
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
