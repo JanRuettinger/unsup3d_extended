@@ -94,6 +94,7 @@ class Renderer(nn.Module):
     def create_meshes_from_depth_map(self,depth_map):
         grid_3d = utils.depth_to_3d_grid(depth_map, self.cameras)
         meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device, self.num_faces_per_sqaure)
+        # pytorch3d.io.save_obj("mesh.obj",verts=meshes._verts_padded[0], faces=meshes._faces_padded[0])
         return meshes
 
 

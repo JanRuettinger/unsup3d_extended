@@ -4,24 +4,22 @@ import pytorch3d.renderer
 import pytorch3d.structures
 import pytorch3d.io
 import pytorch3d.transforms
-import numpy as np
-
-
 
 def create_meshes_from_grid_3d(grid_3d, device, num_faces_per_square):
     ## Vertices
     vertices = grid_3d 
     b, h, w, _ = vertices.shape
-    vertices_center = torch.nn.functional.avg_pool2d(vertices.permute(0,3,1,2), 2, stride=1).permute(0,2,3,1)
-    vertices = torch.cat([vertices.view(b,h*w,3), vertices_center.view(b,(h-1)*(w-1),3)], 1)
-
+    
     idx_map = torch.arange(h*w).reshape(h,w)
     ## Faces
     if num_faces_per_square == 2:
+        vertices = vertices.view(b,h*w,3)
         faces1 = torch.stack([idx_map[:h-1,:w-1], idx_map[1:,:w-1], idx_map[:h-1,1:]], -1).reshape(-1,3).repeat(b,1,1).int()
         faces2 = torch.stack([idx_map[:h-1,1:], idx_map[1:,:w-1], idx_map[1:,1:]], -1).reshape(-1,3).repeat(b,1,1).int()
         faces = torch.cat([faces1, faces2], 1)
     elif num_faces_per_square == 4:
+        vertices_center = torch.nn.functional.avg_pool2d(vertices.permute(0,3,1,2), 2, stride=1).permute(0,2,3,1)
+        vertices = torch.cat([vertices.view(b,h*w,3), vertices_center.view(b,(h-1)*(w-1),3)], 1)
         idx_map_center = torch.arange((h-1)*(w-1)).reshape(h-1,w-1)
         faces1 = torch.stack([idx_map[:h-1,:w-1], idx_map[1:,:w-1], idx_map_center+h*w], -1).reshape(-1,3).repeat(b,1,1).int()  # Bx((H-1)*(W-1))x4
         faces2 = torch.stack([idx_map[1:,:w-1], idx_map[1:,1:], idx_map_center+h*w], -1).reshape(-1,3).repeat(b,1,1).int()  # Bx((H-1)*(W-1))x4
@@ -34,8 +32,8 @@ def create_meshes_from_grid_3d(grid_3d, device, num_faces_per_square):
 
 def get_grid(b, H, W, normalize=True):
     if normalize:
-        h_range = torch.linspace(-1,1,H)
-        w_range = torch.linspace(-1,1,W)
+        h_range = torch.linspace(1,-1,H)
+        w_range = torch.linspace(1,-1,W)
     else:
         h_range = torch.arange(0,H)
         w_range = torch.arange(0,W)

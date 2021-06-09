@@ -145,8 +145,8 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
@@ -282,8 +282,8 @@ class Unsup3D():
         shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
         shading_im_side_view_zoom_out = self.shading_img_side_view_zoom_out[:b0].detach().cpu()
         canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
-        canon_depth_raw = self.canon_depth_raw[:b0].flip(1).detach().unsqueeze(1).cpu() /2.+0.5 # flip(1) is necessary since pytorch3d uses different y axis orientation
-        canon_depth = ((self.canon_depth[:b0].flip(1) -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
+        canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5 # flip(1) is necessary since pytorch3d uses different y axis orientation
+        canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
         canon_light_a = self.canon_light_a/2.+0.5
         canon_light_b = self.canon_light_b/2.+0.5
 
