@@ -1,6 +1,4 @@
 import numpy as np
-import pickle 
-import math
 import torch
 import torch.nn as nn
 import pytorch3d
@@ -17,6 +15,7 @@ from pytorch3d.renderer import (
     TexturesUV,
     DirectionalLights
 )
+from PIL import Image
 from . import utils
 
 class Renderer(nn.Module):
@@ -30,10 +29,11 @@ class Renderer(nn.Module):
         self.fov = cfgs.get('fov', 10)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
         blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
+        self.num_faces_per_sqaure = cfgs.get('num_faces_per_square', 4)
         self.blend_params = pytorch3d.renderer.blending.BlendParams(sigma=blend_param_sigma, gamma=blend_param_gamma)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
-        init_verts, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
+        _, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
         self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
         self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
 
@@ -92,7 +92,8 @@ class Renderer(nn.Module):
 
     def create_meshes_from_depth_map(self,depth_map):
         grid_3d = utils.depth_to_3d_grid(depth_map, self.cameras)
-        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device)
+        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device, self.num_faces_per_sqaure)
+
         return meshes
 
 
@@ -103,6 +104,17 @@ class Renderer(nn.Module):
 
         # replace texture at mesh
         transformed_meshes.textures = textures
+
+        # DEBUG: save mesh
+        # pytorch3d.io.save_obj("mesh_transformed.obj",verts=meshes._verts_padded[0], faces=meshes._faces_padded[0])
+
+        # # DEBUG: save texture
+        # albedo_map_to_store = albedo_maps.detach().cpu().permute(0,2,3,1)/2.+0.5
+        # albedo_map_to_store = albedo_map_to_store.numpy()[0]
+        # albedo_map_to_store2 = Image.fromarray((albedo_map_to_store*255).astype('uint8'))
+        # albedo_map_to_store = Image.fromarray(albedo_map_to_store.astype('uint8'))
+        # albedo_map_to_store.save('albedo_map.png')
+        # albedo_map_to_store2.save('albedo_map2.png')
 
         images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
 

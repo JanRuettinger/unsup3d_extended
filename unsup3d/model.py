@@ -27,7 +27,7 @@ class Unsup3D():
         self.lam_flip_start_epoch = cfgs.get('lam_flip_start_epoch', 0)
         self.lr = cfgs.get('lr', 1e-4)
         self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
-        self.use_depthmap_prior = cfgs.get('depthmap_prior', True)
+        self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
         self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
@@ -37,14 +37,11 @@ class Unsup3D():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        if self.depthmap_mode == 'resnet':
-            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
-        else:
-            self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64, activation=None)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
-        self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+        self.netC = networks.ConfNet(cin=3, cout=2, nf=64)
         self.network_names = [k for k in vars(self) if 'net' in k]
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
