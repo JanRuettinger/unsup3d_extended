@@ -2,7 +2,7 @@
 ## trainer
 run_train: true
 num_epochs: 40
-batch_size: 10
+batch_size: 25
 # checkpoint_dir: results/celeba
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results_fix/lpips_faces_2_without_spike_reduction
 save_checkpoint_freq: 5
