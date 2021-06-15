@@ -48,3 +48,23 @@ def depth_to_3d_grid(depth, cameras):
     grid_3d = cameras.unproject_points(grid_3d.reshape(b,h*w,-1), world_coordinates=True)
     grid_3d = grid_3d.reshape(b,h,w,-1)
     return grid_3d
+
+def get_uv_texture_grid(H, W):
+    h_range = torch.linspace(1,0,H)
+    w_range = torch.linspace(1,0,W)
+    grid = torch.stack(torch.meshgrid([h_range, w_range]), -1).flip(2).float() # flip h,w to x,y
+    return grid  
+
+def get_uv_texture_info(size):
+    w = size
+    h = size
+    
+    # 2 faces
+    uv_vertices_coords = get_uv_texture_grid(h, w)  # HxWx2
+    uv_vertices_coords = uv_vertices_coords.view(h*w,2)
+    
+    idx_map = torch.arange(h*w).reshape(h,w)
+    faces1 = torch.stack([idx_map[:h-1,:w-1], idx_map[1:,:w-1], idx_map[:h-1,1:]], -1).reshape(-1,3).int()
+    faces2 = torch.stack([idx_map[:h-1,1:], idx_map[1:,:w-1], idx_map[1:,1:]], -1).reshape(-1,3).int()
+    faces = torch.cat([faces1, faces2], 0)
+    return uv_vertices_coords, faces

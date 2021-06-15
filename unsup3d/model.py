@@ -137,7 +137,7 @@ class Unsup3D():
             depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
             depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
             depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + 1/self.spike_reduction*0.5*depthmap_prior
+            self.canon_depth = self.canon_depth + 1/self.spike_reduction*depthmap_prior
         if self.spike_reduction:
             self.canon_depth = self.canon_depth*self.spike_reduction
         self.canon_depth = self.canon_depth.tanh()
@@ -145,8 +145,8 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 

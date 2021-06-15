@@ -29,13 +29,17 @@ class Renderer(nn.Module):
         self.fov = cfgs.get('fov', 10)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
         blend_param_gamma = cfgs.get('blend_param_gamma', 1e-5) 
-        self.num_faces_per_sqaure = cfgs.get('num_faces_per_square', 4)
+        self.num_faces_per_square = cfgs.get('num_faces_per_square', 2)
         self.blend_params = pytorch3d.renderer.blending.BlendParams(sigma=blend_param_sigma, gamma=blend_param_gamma)
         self.cameras = pytorch3d.renderer.FoVPerspectiveCameras(znear=0.9, zfar=1.1,fov=self.fov, device=self.device)
         self.image_renderer = self._create_image_renderer()
-        _, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
-        self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
-        self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
+        # _, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
+        # _, init_faces, init_aux = pytorch3d.io.load_obj(f'unsup3d/renderer/{self.depthmap_size}x{self.depthmap_size}.obj',device=self.device)
+        # self.tex_faces_uv = init_faces.textures_idx.unsqueeze(0)
+        # self.tex_verts_uv = init_aux.verts_uvs.unsqueeze(0)
+        verts_uvs, textures_idx =  utils.get_uv_texture_info(self.depthmap_size)
+        self.tex_faces_uv = textures_idx.unsqueeze(0).long().to(device=self.device)
+        self.tex_verts_uv = verts_uvs.unsqueeze(0).to(device=self.device)
 
     def _create_image_renderer(self):
         raster_settings = self._get_rasterization_settings()
@@ -92,7 +96,7 @@ class Renderer(nn.Module):
 
     def create_meshes_from_depth_map(self,depth_map):
         grid_3d = utils.depth_to_3d_grid(depth_map, self.cameras)
-        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device, self.num_faces_per_sqaure)
+        meshes = utils.create_meshes_from_grid_3d(grid_3d, self.device, self.num_faces_per_square)
 
         return meshes
 
