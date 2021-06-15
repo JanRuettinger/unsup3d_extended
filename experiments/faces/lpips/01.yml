@@ -1,0 +1,49 @@
+## train celeba
+## trainer
+run_train: true
+num_epochs: 40
+batch_size: 25
+# checkpoint_dir: results/celeba
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/meeting_elliot/lpips_no_spike_reduction_with_z_translation
+save_checkpoint_freq: 5
+keep_num_checkpoint: 15
+resume: false
+use_logger: true
+log_freq: 100
+
+## dataloader
+num_workers: 4
+image_size: 128
+depthmap_size: 32
+crop: [58, 48, 160, 160]
+load_gt_depth: false
+# train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/celeba_cropped 
+
+## model
+model_name: unsup3d_celeba
+min_depth: 0.9
+max_depth: 1.1
+xyz_rotation_range: 60  # (-r,r) in degrees
+xy_translation_range: 0.1  # (-t,t) in 3D
+z_translation_range: 0.1  # (-t,t) in 3D
+lam_perc: 1 # 1
+use_lpips: true
+lam_perc_increase_start_epoch: 10000
+lam_flip: 0.9
+lr: 0.0001
+spike_reduction: 1
+use_depthmap_prior: true
+depthmap_prior_sigma: 12 #0, 5, 12
+conf_map_enabled: true
+depth_network: resnet
+num_faces_per_square: 2 # 2 or 4
+
+
+## renderer
+rot_center_depth: 1.0
+fov: 10  # in degrees
+tex_cube_size: 2
+blend_param_sigma: 0.00001
+blend_param_gamma: 0.00001
+faces_per_pixel: 6
