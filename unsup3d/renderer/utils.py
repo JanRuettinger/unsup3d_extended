@@ -26,23 +26,19 @@ def create_meshes_from_grid_3d(grid_3d, device, num_faces_per_square):
         faces3 = torch.stack([idx_map[1:,1:], idx_map[:h-1,1:], idx_map_center+h*w], -1).reshape(-1,3).repeat(b,1,1).int()  # Bx((H-1)*(W-1))x4
         faces4 = torch.stack([idx_map[:h-1,1:], idx_map[:h-1,:w-1], idx_map_center+h*w], -1).reshape(-1,3).repeat(b,1,1).int()  # Bx((H-1)*(W-1))x4
         faces = torch.cat([faces1, faces2, faces3, faces4], 1)
-
     meshes = pytorch3d.structures.Meshes(verts=vertices.to(device), faces=faces.to(device))
     return meshes
 
-def get_grid(b, H, W, normalize=True):
-    if normalize:
-        h_range = torch.linspace(1,-1,H)
-        w_range = torch.linspace(1,-1,W)
-    else:
-        h_range = torch.arange(0,H)
-        w_range = torch.arange(0,W)
-    grid = torch.stack(torch.meshgrid([h_range, w_range]), -1).repeat(b,1,1,1).flip(3).float() # flip h,w to x,y
+def get_grid(b, H, W):
+    h_range = torch.linspace(1,-1,H)
+    w_range = torch.linspace(1,-1,W)
+    grid = torch.stack(torch.meshgrid([h_range, w_range]), -1).flip(2)
+    grid = grid.repeat(b,1,1,1).float() # flip h,w to x,y
     return grid 
 
 def depth_to_3d_grid(depth, cameras):
     b, h, w = depth.shape
-    grid_2d = get_grid(b, h, w, normalize=True).to(depth.device)  # Nxhxwx2
+    grid_2d = get_grid(b, h, w).to(depth.device)  # Nxhxwx2
     depth = depth.unsqueeze(-1)
     grid_3d = torch.cat((grid_2d, depth), dim=3)
     grid_3d = cameras.unproject_points(grid_3d.reshape(b,h*w,-1), world_coordinates=True)
@@ -52,7 +48,8 @@ def depth_to_3d_grid(depth, cameras):
 def get_uv_texture_grid(H, W):
     h_range = torch.linspace(1,0,H)
     w_range = torch.linspace(1,0,W)
-    grid = torch.stack(torch.meshgrid([h_range, w_range]), -1).flip(2).float() # flip h,w to x,y
+    grid = torch.stack(torch.meshgrid([h_range, w_range]), -1)
+    grid = grid.flip(2).float() # flip h,w to x,y
     return grid  
 
 def get_uv_texture_info(size):
@@ -64,6 +61,7 @@ def get_uv_texture_info(size):
     uv_vertices_coords = uv_vertices_coords.view(h*w,2)
     
     idx_map = torch.arange(h*w).reshape(h,w)
+    # create trianlges counter clock wise
     faces1 = torch.stack([idx_map[:h-1,:w-1], idx_map[1:,:w-1], idx_map[:h-1,1:]], -1).reshape(-1,3).int()
     faces2 = torch.stack([idx_map[:h-1,1:], idx_map[1:,:w-1], idx_map[1:,1:]], -1).reshape(-1,3).int()
     faces = torch.cat([faces1, faces2], 0)

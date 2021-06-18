@@ -7,6 +7,7 @@ from . import networks
 from . import utils
 from .renderer import Renderer
 import lpips
+from PIL import Image
 
 EPS = 1e-7
 
@@ -153,6 +154,21 @@ class Unsup3D():
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+
+        canon_flipped = (self.canon_albedo.detach().cpu().numpy()[0]*255).astype(np.uint8)
+        # canon_flipped = np.moveaxis(canon_flipped, [0,1,2], [2, 1, 0])
+        # image = Image.fromarray(canon_flipped)
+        # image.save('albedo_flipped.png')
+
+
+        # image_not_flipped = Image.fromarray((tex_im.detach().cpu().numpy()[0]*255).astype(np.uint8))
+        # image_flipped_1 = Image.fromarray((tex_im.flip(1).detach().cpu().numpy()[0]*255).astype(np.uint8))
+        # image_flipped_2 = Image.fromarray((tex_im.flip(2).detach().cpu().numpy()[0]*255).astype(np.uint8))
+        # image_flipped_3 = Image.fromarray((tex_im.flip(3).detach().cpu().numpy()[0]*255).astype(np.uint8))
+        # image_not_flipped.save('not_flipped.png')
+        # image_flipped_1.save('flipped_1.png')
+        # image_flipped_2.save('flipped_2.png')
+        # image_flipped_3.save('flipped_3.png')
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
