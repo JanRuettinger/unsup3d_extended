@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 100
 batch_size: 16
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug/64_dm
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug/conf_map_false
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/lpips
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
@@ -29,15 +29,12 @@ xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 3 # 1
 use_lpips: true
+conf_map_enabled: false
 lam_perc_increase_start_epoch: 10000
 lam_flip: 0.9
 lr: 0.0001
-spike_reduction: 1
-use_depthmap_prior: false
-depthmap_prior_sigma: 12 #0, 5, 12
-conf_map_enabled: true
 depth_network: old
-num_faces_per_square: 2 # 2 or 4
+num_faces_per_square: 2 # 2 -> 4 not implemented righ tnow 
 
 ## renderer
 rot_center_depth: 1.0

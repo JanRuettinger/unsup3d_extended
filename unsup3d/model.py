@@ -27,14 +27,11 @@ class Unsup3D():
         self.lam_flip = cfgs.get('lam_flip', 0.5)
         self.lam_flip_start_epoch = cfgs.get('lam_flip_start_epoch', 0)
         self.lr = cfgs.get('lr', 1e-4)
-        self.spike_reduction = cfgs.get('spike_reduction', 1e-1)
-        self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
-        self.depthmap_prior_sigma = cfgs.get('depthmap_prior_sigma', 0)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
-        self.conf_map_enabled = cfgs.get('conf_map_enabled', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
         self.lam_perc_increase_start_epoch = cfgs.get('lam_perc_increase_start_epoch', 2)
         self.use_lpips = cfgs.get('use_lpips', False)
+        self.conf_map_enabled = cfgs.get('conf_map_enabled', True)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -133,14 +130,6 @@ class Unsup3D():
         self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
-        if self.use_depthmap_prior:
-            # weak prior for the depth map ensures that the depth map sticks out of the image plane
-            depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64_sigma_{self.depthmap_prior_sigma}.npy')).to(self.device)
-            depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
-            depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[32,32], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + 1/self.spike_reduction*depthmap_prior
-        if self.spike_reduction:
-            self.canon_depth = self.canon_depth*self.spike_reduction
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -151,19 +140,9 @@ class Unsup3D():
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
-        # depthmap has values between 0.9 and 1.1
-        image = self.canon_depth.detach()[0].cpu().numpy().astype(np.uint8)*255
-        image = Image.fromarray(image)
-        image.save('canon_depth_map.jpg')
-
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
-
-        # Debug
-        image = ((self.canon_albedo.detach()[0].cpu().permute(1,2,0)/2+0.5).numpy()*255).astype(np.uint8)
-        image = Image.fromarray(image)
-        image.save('canon_albedo.jpg')
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
@@ -201,7 +180,7 @@ class Unsup3D():
         if self.conf_map_enabled:
             self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
             self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
-        
+    
             if self.use_lpips:
                 self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
                 self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
@@ -209,19 +188,20 @@ class Unsup3D():
                 self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
                 self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
         else:
-            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=None)
-            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=None)
-            self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b],self.input_im,mask=detached_mask[:b],conf_sigma=None)
-            self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b],conf_sigma=None)
+            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
+            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:])
+
+            if self.use_lpips:
+                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+            else:
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b])
+
         
         self.lam_perc = 0.5 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
-
-        # Debug
-        image = ((self.recon_im.detach()[0].cpu().permute(1,2,0)).numpy()*255).astype(np.uint8)
-        image = Image.fromarray(image)
-        image.save('recon_img.jpg')
 
         metrics = {'loss': self.loss_total}
 
