@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 100
 batch_size: 16
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug/conf_map_false
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug/znear_zfar_epislon_big
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/lpips
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
@@ -24,17 +24,19 @@ train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
 model_name: unsup3d_celeba
 min_depth: 0.9
 max_depth: 1.1
+znear_render: 0.8
+zfar_render: 1.2
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 3 # 1
 use_lpips: true
-conf_map_enabled: false
+conf_map_enabled: true
 lam_perc_increase_start_epoch: 10000
-lam_flip: 0.9
+lam_flip: 0.6
 lr: 0.0001
-depth_network: old
-num_faces_per_square: 2 # 2 -> 4 not implemented righ tnow 
+depth_network: resnet
+num_faces_per_square: 2 # 2 -> 4 not implemented right now 
 
 ## renderer
 rot_center_depth: 1.0

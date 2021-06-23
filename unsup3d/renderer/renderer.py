@@ -25,6 +25,8 @@ class Renderer(nn.Module):
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
         self.depthmap_size = cfgs.get('depthmap_size', 32)
+        self.znear_render = cfgs.get('znear_render', 0.8)
+        self.zfar_render = cfgs.get('zfar_render', 1.2)
         self.faces_per_pixel = cfgs.get('faces_per_pixel', 5)
         self.fov = cfgs.get('fov', 10)
         blend_param_sigma = cfgs.get('blend_param_sigma', 1e-5) 
@@ -51,10 +53,6 @@ class Renderer(nn.Module):
     def _get_textures(self, tex_im):
         tex_im = tex_im.permute(0,2,3,1)/2.+0.5
 
-        # # DEBUG: save texture
-        image = (tex_im.detach()[0].cpu().numpy()*255).astype(np.uint8)
-        image = Image.fromarray(image)
-        image.save('tex_im.jpg')
         b, h, w, c = tex_im.shape
         # flip texture map 
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
@@ -105,21 +103,8 @@ class Renderer(nn.Module):
         textures = self._get_textures(albedo_maps)
         lights = self._get_lights(lighting)
         transformed_meshes = self._get_transformed_meshes(meshes, view) # we rotate the mesh instead of the camera since it's easier
-
         # replace texture at mesh
         transformed_meshes.textures = textures
-
-        # DEBUG: save mesh
-        pytorch3d.io.save_obj("mesh_transformed.obj",verts=meshes._verts_padded[0], faces=meshes._faces_padded[0])
-
-
-        # albedo_map_to_store = albedo_maps.detach().cpu().permute(0,2,3,1)/2.+0.5
-        # albedo_map_to_store = albedo_map_to_store.numpy()[0]
-        # albedo_map_to_store2 = Image.fromarray((albedo_map_to_store*255).astype('uint8'))
-        # albedo_map_to_store = Image.fromarray(albedo_map_to_store.astype('uint8'))
-        # albedo_map_to_store.save('albedo_map.png')
-        # albedo_map_to_store2.save('albedo_map2.png')
-
-        images = self.image_renderer(meshes_world=transformed_meshes,lights=lights)
+        images = self.image_renderer(meshes_world=transformed_meshes,lights=lights, znear=self.znear_render, zfar=self.zfar_render)
 
         return images

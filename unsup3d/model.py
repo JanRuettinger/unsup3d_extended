@@ -25,7 +25,6 @@ class Unsup3D():
         self.z_translation_range = cfgs.get('z_translation_range', 0.1)
         self.lam_perc = cfgs.get('lam_perc', 1)
         self.lam_flip = cfgs.get('lam_flip', 0.5)
-        self.lam_flip_start_epoch = cfgs.get('lam_flip_start_epoch', 0)
         self.lr = cfgs.get('lr', 1e-4)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
@@ -200,8 +199,7 @@ class Unsup3D():
 
         
         self.lam_perc = 0.5 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
-        lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
-        self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
+        self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + self.lam_flip*self.loss_perc_im_flip)
 
         metrics = {'loss': self.loss_total}
 
