@@ -28,9 +28,10 @@ class Unsup3D():
         self.lr = cfgs.get('lr', 1e-4)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
-        self.lam_perc_increase_start_epoch = cfgs.get('lam_perc_increase_start_epoch', 2)
+        self.lam_perc_decrease_start_epoch = cfgs.get('lam_perc_decrease_start_epoch', 2)
         self.use_lpips = cfgs.get('use_lpips', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', True)
+        self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
@@ -129,6 +130,12 @@ class Unsup3D():
         self.canon_depth_raw = self.netD(self.input_im).squeeze(1)  # BxHxW
 
         self.canon_depth = self.canon_depth_raw - self.canon_depth_raw.view(b,-1).mean(1).view(b,1,1)
+        if self.use_depthmap_prior:
+            # weak prior for the depth map ensures that the depth map sticks out of the image plane
+            depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy')).to(self.device)
+            depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
+            depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[self.depthmap_size,self.depthmap_size], mode='nearest', align_corners=None)[0,...]
+            self.canon_depth = self.canon_depth + 2*depthmap_prior
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -198,7 +205,7 @@ class Unsup3D():
                 self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b])
 
         
-        self.lam_perc = 0.5 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
+        self.lam_perc = 1 if self.trainer.current_epoch > self.lam_perc_decrease_start_epoch else self.lam_perc 
         self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + self.lam_flip*self.loss_perc_im_flip)
 
         metrics = {'loss': self.loss_total}
