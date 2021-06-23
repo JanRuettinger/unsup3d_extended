@@ -151,24 +151,19 @@ class Unsup3D():
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
+        # depthmap has values between 0.9 and 1.1
+        image = self.canon_depth.detach()[0].cpu().numpy().astype(np.uint8)*255
+        image = Image.fromarray(image)
+        image.save('canon_depth_map.jpg')
+
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
-        canon_flipped = (self.canon_albedo.detach().cpu().numpy()[0]*255).astype(np.uint8)
-        # canon_flipped = np.moveaxis(canon_flipped, [0,1,2], [2, 1, 0])
-        # image = Image.fromarray(canon_flipped)
-        # image.save('albedo_flipped.png')
-
-
-        # image_not_flipped = Image.fromarray((tex_im.detach().cpu().numpy()[0]*255).astype(np.uint8))
-        # image_flipped_1 = Image.fromarray((tex_im.flip(1).detach().cpu().numpy()[0]*255).astype(np.uint8))
-        # image_flipped_2 = Image.fromarray((tex_im.flip(2).detach().cpu().numpy()[0]*255).astype(np.uint8))
-        # image_flipped_3 = Image.fromarray((tex_im.flip(3).detach().cpu().numpy()[0]*255).astype(np.uint8))
-        # image_not_flipped.save('not_flipped.png')
-        # image_flipped_1.save('flipped_1.png')
-        # image_flipped_2.save('flipped_2.png')
-        # image_flipped_3.save('flipped_3.png')
+        # Debug
+        image = ((self.canon_albedo.detach()[0].cpu().permute(1,2,0)/2+0.5).numpy()*255).astype(np.uint8)
+        image = Image.fromarray(image)
+        image.save('canon_albedo.jpg')
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
@@ -222,6 +217,11 @@ class Unsup3D():
         self.lam_perc = 0.5 if self.trainer.current_epoch > self.lam_perc_increase_start_epoch else self.lam_perc 
         lam_flip = 1 if self.trainer.current_epoch < self.lam_flip_start_epoch else self.lam_flip
         self.loss_total = self.loss_l1_im + lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + lam_flip*self.loss_perc_im_flip)
+
+        # Debug
+        image = ((self.recon_im.detach()[0].cpu().permute(1,2,0)).numpy()*255).astype(np.uint8)
+        image = Image.fromarray(image)
+        image.save('recon_img.jpg')
 
         metrics = {'loss': self.loss_total}
 

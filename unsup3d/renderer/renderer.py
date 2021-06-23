@@ -50,6 +50,11 @@ class Renderer(nn.Module):
 
     def _get_textures(self, tex_im):
         tex_im = tex_im.permute(0,2,3,1)/2.+0.5
+
+        # # DEBUG: save texture
+        image = (tex_im.detach()[0].cpu().numpy()*255).astype(np.uint8)
+        image = Image.fromarray(image)
+        image.save('tex_im.jpg')
         b, h, w, c = tex_im.shape
         # flip texture map 
         assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
@@ -105,9 +110,9 @@ class Renderer(nn.Module):
         transformed_meshes.textures = textures
 
         # DEBUG: save mesh
-        # pytorch3d.io.save_obj("mesh_transformed.obj",verts=meshes._verts_padded[0], faces=meshes._faces_padded[0])
+        pytorch3d.io.save_obj("mesh_transformed.obj",verts=meshes._verts_padded[0], faces=meshes._faces_padded[0])
 
-        # # DEBUG: save texture
+
         # albedo_map_to_store = albedo_maps.detach().cpu().permute(0,2,3,1)/2.+0.5
         # albedo_map_to_store = albedo_map_to_store.numpy()[0]
         # albedo_map_to_store2 = Image.fromarray((albedo_map_to_store*255).astype('uint8'))
