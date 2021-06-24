@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 100
 batch_size: 8
 # checkpoint_dir: /scratch/local/ssd/janhr/results/debug_2/128_64
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions/render_frustum_tight
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions/render_frustum_not_tight
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
 resume: false
@@ -18,7 +18,7 @@ depthmap_size: 64
 crop: [58, 48, 160, 160]
 load_gt_depth: false
 # train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
-train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/celeba_cropped
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/celeba_cropped
 
 # model
 model_name: unsup3d_celeba
@@ -44,6 +44,6 @@ tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
 faces_per_pixel: 6
-znear_render: 0.89
-zfar_render: 1.11
+znear_render: 0.4
+zfar_render: 1.5
 rendered_image_size: 128
