@@ -13,6 +13,11 @@ conda env create -f environment.yml
 ```
 Tested with Python 3.8.3.
 
+## Bug in Pytorch3d
+You need to change the following lines in `phong_shading()` function in the file `shading.py` in the pytorch3d package.
+#colors = (ambient + diffuse) * texels + specular
+#colors = (ambient.unsqueeze(1).unsqueeze(1).unsqueeze(1) + diffuse) * texels + specula
+
 ## Datasets
 
 1. CelebA face dataset. Please download the original images (img_celeba.7z) from their website and run celeba_crop.py in data/ to crop the images.
