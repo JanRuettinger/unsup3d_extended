@@ -119,11 +119,11 @@ class DepthMapResNet(nn.Module):
             nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
             nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True),
-            # nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
-            # # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
-            # # nn.GroupNorm(16, nf),
-            # # nn.BatchNorm2d(nf),
-            # # nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
+            # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
+            # nn.GroupNorm(16, nf),
+            # nn.BatchNorm2d(nf),
+            # nn.ReLU(inplace=True),
             # nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
             # nn.GroupNorm(16, nf),
             # nn.ReLU(inplace=True),

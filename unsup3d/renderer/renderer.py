@@ -25,6 +25,7 @@ class Renderer(nn.Module):
         self.device = cfgs.get('device', 'cpu')
         self.image_size = cfgs.get('image_size', 64)
         self.depthmap_size = cfgs.get('depthmap_size', 32)
+        self.rendered_image_size =cfgs.get('rendered_image_size', 128) 
         self.znear_render = cfgs.get('znear_render', 0.8)
         self.zfar_render = cfgs.get('zfar_render', 1.2)
         self.faces_per_pixel = cfgs.get('faces_per_pixel', 5)
@@ -47,7 +48,7 @@ class Renderer(nn.Module):
 
     def _get_rasterization_settings(self):
         self.blur_radius = np.log(1. / 1e-4 - 1.) * self.blend_params.sigma 
-        raster_settings = RasterizationSettings(image_size=self.image_size, blur_radius=self.blur_radius, faces_per_pixel=self.faces_per_pixel, perspective_correct=False)
+        raster_settings = RasterizationSettings(image_size=self.rendered_image_size, blur_radius=self.blur_radius, faces_per_pixel=self.faces_per_pixel, perspective_correct=False)
         return raster_settings
 
     def _get_textures(self, tex_im):
@@ -55,7 +56,7 @@ class Renderer(nn.Module):
 
         b, h, w, c = tex_im.shape
         # flip texture map 
-        assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
+        # assert w == self.image_size and h == self.image_size, "Texture image has the wrong resolution."
         textures = TexturesUV(maps=tex_im,  # texture maps are BxHxWx3
                                     faces_uvs=self.tex_faces_uv.repeat(b, 1, 1),
                                     verts_uvs=self.tex_verts_uv.repeat(b, 1, 1))

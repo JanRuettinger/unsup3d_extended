@@ -38,11 +38,12 @@ class Unsup3D():
         if self.depthmap_mode == 'resnet':
             self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
         else:
-            self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
+            self.netD = networks.DepthMapNet64(cin=3, cout=1, nf=64,zdim=256, activation=None)
         self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
-        self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+        if self.conf_map_enabled == True:
+            self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
         self.network_names = [k for k in vars(self) if 'net' in k]
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
@@ -123,7 +124,8 @@ class Unsup3D():
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
-        self.input_im = input.to(self.device)
+        self.input_im_org = input.to(self.device)
+        self.input_im  = torch.nn.functional.interpolate(self.input_im_org, size=[128,128], mode='nearest', align_corners=None)
         b, c, h, w = self.input_im.shape
 
         ## predict canonical depth
@@ -151,7 +153,8 @@ class Unsup3D():
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
         ## predict confidence map
-        self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
+        if self.conf_map_enabled:
+            self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
 
         ## predict lighting
         canon_light = self.netL(self.input_im).repeat(2,1)  # Bx4
@@ -184,25 +187,25 @@ class Unsup3D():
         detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
 
         if self.conf_map_enabled:
-            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
-            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
+            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im_org, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
+            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im_org, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
     
             if self.use_lpips:
-                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
-                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im_org))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im_org))
             else:
-                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
-                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im_org, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im_org ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
         else:
-            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
-            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:])
+            self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im_org, mask=detached_mask[:b])
+            self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im_org, mask=detached_mask[b:])
 
             if self.use_lpips:
-                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
-                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+                self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im_org))
+                self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im_org))
             else:
-                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
-                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b])
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im_org, mask=detached_mask[:b])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im_org ,mask=detached_mask[:b])
 
         
         self.lam_perc = 1 if self.trainer.current_epoch > self.lam_perc_decrease_start_epoch else self.lam_perc 
