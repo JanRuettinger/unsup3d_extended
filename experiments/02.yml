@@ -1,12 +1,12 @@
-## train celeba
+## train cat
 ## trainer
 run_train: true
-num_epochs: 100
-batch_size: 1
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug/big_faces
-# checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/lpips
-save_checkpoint_freq: 1
-keep_num_checkpoint: 2
+num_epochs: 120
+batch_size: 2
+# checkpoint_dir: results/cat
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/256_dogs
+save_checkpoint_freq: 5
+keep_num_checkpoint: 15
 resume: false
 use_logger: true
 log_freq: 100
@@ -17,13 +17,13 @@ image_size: 256
 depthmap_size: 64
 crop: [58, 48, 160, 160]
 load_gt_depth: false
-train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
-# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/celeba_cropped
+# train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/dogs_cropped
 
 # model
 model_name: unsup3d_celeba
-min_depth: 0.9
-max_depth: 1.1
+min_depth: 0.85
+max_depth: 1.15
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
