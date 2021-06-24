@@ -18,7 +18,7 @@ depthmap_size: 64
 # crop: 170 # 64 for debug_2 170 for normal
 load_gt_depth: false
 train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
-# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/dogs_cropped
+# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/dogs_cropped
 
 ## model
 model_name: unsup3d_cats
