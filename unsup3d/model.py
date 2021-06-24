@@ -35,14 +35,14 @@ class Unsup3D():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        if self.depthmap_mode == 'resnet':
-            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
-        else:
-            self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        # if self.depthmap_mode == 'resnet':
+        self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,activation=None)
+        # else:
+            # self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
+        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
-        self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+        self.netC = networks.ConfNet(cin=3, cout=2, nf=64)
         self.network_names = [k for k in vars(self) if 'net' in k]
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
