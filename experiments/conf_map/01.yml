@@ -2,9 +2,9 @@
 ## trainer
 run_train: true
 num_epochs: 100
-batch_size: 8
+batch_size: 20
 # checkpoint_dir: /scratch/local/ssd/janhr/results/debug_2/128_64
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions_2/higher_res_256
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions_2/with_confmap
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
 resume: false
@@ -13,7 +13,7 @@ log_freq: 100
 
 ## dataloader
 num_workers: 4
-image_size: 256
+image_size: 128
 depthmap_size: 64
 crop: [58, 48, 160, 160]
 load_gt_depth: false
@@ -27,10 +27,10 @@ max_depth: 1.1
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 0.4 # 1
+lam_perc: 1 # 1
 use_lpips: true
 use_depthmap_prior: true
-conf_map_enabled: false
+conf_map_enabled: true
 lam_perc_decrease_start_epoch: 10000
 lam_flip: 0.6
 lr: 0.0001
@@ -46,4 +46,4 @@ blend_param_gamma: 0.00001
 faces_per_pixel: 6
 znear_render: 0.85
 zfar_render: 1.15
-rendered_image_size: 256
+rendered_image_size: 128

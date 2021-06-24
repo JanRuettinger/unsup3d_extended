@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 100
 batch_size: 8
 # checkpoint_dir: /scratch/local/ssd/janhr/results/debug_2/128_64
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions/render_frustum_not_tight
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/various_resolutions_2/render_frustum_not_tight
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
 resume: false
@@ -24,8 +24,8 @@ train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/
 model_name: unsup3d_celeba
 min_depth: 0.9
 max_depth: 1.1
-xyz_rotation_range: 10  # (-r,r) in degrees
-xy_translation_range: 0.05  # (-t,t) in 3D
+xyz_rotation_range: 60  # (-r,r) in degrees
+xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 0.4 # 1
 use_lpips: true
