@@ -141,8 +141,8 @@ class Unsup3D():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-8).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (4,4), mode='constant', value=1)
+        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
 
