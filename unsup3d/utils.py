@@ -187,9 +187,9 @@ def calculate_views_for_360_video(original_view, num_frames=8):
         new_view[:,0] = 0 # rotation around x axis
         new_view[:,1] = rotation_around_y # rotation around y axis
         new_view[:,2] = 0# rotation around z axis
-        new_view[:,3] = 0 #x
+        new_view[:,3] = 0.025 #x
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0 #z
+        new_view[:,5] = 0.4 #z
         views.append(new_view)
     
     return torch.stack(views)
@@ -211,7 +211,7 @@ def get_side_view(original_view, zoom_mode=0):
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0.025 #x 
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.15 #z zoom out a little bit
+        new_view[:,5] = 0.4 #z zoom out a little bit
         return new_view
 
 
