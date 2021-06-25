@@ -91,7 +91,7 @@ class DepthMapResNet(nn.Module):
             nn.GroupNorm(16*4, nf*4),
             # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 8x8
             nn.GroupNorm(16*8, nf*8),
             # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
@@ -103,7 +103,7 @@ class DepthMapResNet(nn.Module):
             BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
             BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
             # BasicBlock(nf*8, nf*4, norm_layer=nn.InstanceNorm2d),
-            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 8x8 -> 16x16
             # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
             # nn.GroupNorm(16, nf),
             # nn.BatchNorm2d(nf),
