@@ -2,10 +2,10 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 25
+batch_size: 10
 # checkpoint_dir: results/cat
-# checkpoint_dir: /scratch/local/ssd/janhr/results/debug/dogs
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/25_03/medium_perc_loss
+# checkpoint_dir: /scratch/local/ssd/janhr/results/debug_4/20_num_faces_per_pixel
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/25_03/20_num_faces_per_pixel
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -45,6 +45,6 @@ fov: 10  # in degrees
 tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
-faces_per_pixel: 6
+faces_per_pixel: 20
 znear_render: 0.7
 zfar_render: 1.3
