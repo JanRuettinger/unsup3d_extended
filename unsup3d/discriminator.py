@@ -1,0 +1,80 @@
+import math
+import torch
+import torch.nn as nn
+import numpy as np
+import torchvision
+from . import networks
+from . import utils
+from .renderer import Renderer
+import lpips
+from PIL import Image
+
+EPS = 1e-7
+
+
+class Unsup3D_Discriminator():
+    def __init__(self, cfgs):
+        self.device = cfgs.get('device', 'cpu')
+        self.image_size = cfgs.get('image_size', 64)
+        self.depthmap_size = cfgs.get('depthmap_size', 32)
+        self.lr = cfgs.get('lr', 1e-4)
+        self.model = networks.DCDiscriminator(in_dim=3, n_feat=512, img_size=self.image_size)
+        # self.netG_discriminator_flipped = networks.DCDiscriminator(in_dim=3, n_feat=512, img_size=self.image_size)
+
+		def toggle_grad(model, requires_grad):
+			for p in self.model.parameters():
+					p.requires_grad_(requires_grad)
+		
+		# def set_train(self):
+    #     for net_name in self.network_names:
+    #         getattr(self, net_name).train()
+
+    # def set_eval(self):
+    #     for net_name in self.network_names:
+    #         getattr(self, net_name).eval(
+
+		# def reset_optimizer(self):
+    #     for optim_name in self.optimizer_names:
+    #         getattr(self, optim_name).zero_grad(
+    
+    # def optimizer_step(self):
+    #     for optim_name in self.optimizer_names:
+    #         getattr(self, optim_name).step()
+
+		def forward(self,input,iter):
+			pass
+			  # self.input_im = input.to(self.device)
+        # b, c, h, w = self.input_im.shape
+
+				#         #### GAN losses ####
+        # # Generator loss & generator optimization
+        # x_fake = self.recon_im
+        # with torch.no_grad():
+        #     d_fake = self.netG_discriminator(x_fake)
+        # loss_gen = compute_bce(d_fake, 1)
+
+        # # Discriminator loss & discriminator optimization
+        # x_real = self.input_im
+        # self.canon_depth*(1-depth_border) + depth_border *self.border_depth
+        # x_real = x_real*self.recon_im_mask_both + tensor.ones_like(self.input_im)*(1-self.recon_im_mask_both)
+        # # mask input_image
+        # loss_dis_full = 0.
+
+        # d_real = self.netG_discriminator(x_real)
+        # loss_dis_real = compute_bce(d_real, 1)
+        # loss_dis_full += loss_dis_real
+
+        # # reg = 10. * compute_grad2(d_real, x_real).mean()
+        # # loss_d_full += reg
+
+        # x_fake = self.recon_im
+        # x_fake.requires_grad = False
+        # d_fake = self.netG_discriminator(x_fake)
+        # loss_dis_fake = compute_bce(d_fake, 0)
+        # loss_dis_full += loss_dis_fake
+
+
+        # self.total_loss += loss_gen + loss_dis_full
+
+        # # loss_d_full.backward()
+        # # self.optimizer_d.step()
