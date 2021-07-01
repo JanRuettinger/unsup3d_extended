@@ -1,3 +1,7 @@
+from torch import autograd
+import torch.nn.functional as F
+
+EPS = 1e-7
 
 def compute_bce(d_out, target):
     targets = d_out.new_full(size=d_out.size(), fill_value=target)
@@ -13,10 +17,10 @@ def compute_grad2(d_out, x_in):
     grad_dout2 = grad_dout.pow(2)
     assert(grad_dout2.size() == x_in.size())
     reg = grad_dout2.reshape(batch_size, -1).sum(1)
-    return re
+    return reg
 
 
-def photometric_loss(self, im1, im2, mask=None, conf_sigma=None):
+def photometric_loss(im1, im2, mask=None, conf_sigma=None):
 		loss = (im1-im2).abs()
 		if conf_sigma is not None:
 				loss = loss *2**0.5 / (conf_sigma +EPS) + (conf_sigma +EPS).log()

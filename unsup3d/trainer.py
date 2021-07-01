@@ -7,6 +7,8 @@ from . import utils
 from . import losses
 from .dataloaders import get_data_loaders
 import lpips
+from PIL import Image
+import numpy as np
 
 
 class Trainer():
@@ -24,6 +26,9 @@ class Trainer():
         self.checkpoint_name = cfgs.get('checkpoint_name', None)
         self.test_result_dir = cfgs.get('test_result_dir', None)
         self.cfgs = cfgs
+        self.lam_perc = cfgs.get('lam_perc', 1)
+        self.lam_flip = cfgs.get('lam_flip', 0.5)
+        self.discriminator_loss = cfgs.get('discriminator_loss', 0.1)
 
         self.metrics_trace = meters.MetricsTrace()
         self.make_metrics = lambda m=None: meters.StandardMetrics(m)
@@ -34,6 +39,8 @@ class Trainer():
         self.train_loader, self.val_loader, self.test_loader = get_data_loaders(cfgs)
         loss_fn = lpips.LPIPS(net='alex')
         self.PerceptualLoss = loss_fn.to(device=self.device)
+        #         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
+        #         self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
 
 
     # def load_checkpoint(self, optim=True):
@@ -108,6 +115,7 @@ class Trainer():
 
         ## resume from checkpoint
         if self.resume:
+            pass
             # start_epoch = self.load_checkpoint(optim=True)
 
         ## initialize tensorboardX logger
@@ -117,6 +125,7 @@ class Trainer():
             self.logger.add_text("config", json.dumps(self.cfgs))
 
             ## cache one batch for visualization
+            self.val_loader.__iter__().__next__() # skip first
             self.viz_input = self.val_loader.__iter__().__next__()
 
         ## run epochs
@@ -131,6 +140,7 @@ class Trainer():
                 self.metrics_trace.append("val", metrics)
 
             if (epoch+1) % self.save_checkpoint_freq == 0:
+                pass
                 # self.save_checkpoint(epoch+1, optim=True)
             self.metrics_trace.plot(pdf_path=os.path.join(self.checkpoint_dir, 'metrics.pdf'))
             self.metrics_trace.save(os.path.join(self.checkpoint_dir, 'metrics.json'))
@@ -151,144 +161,197 @@ class Trainer():
             self.generator.set_eval()
             self.discriminator.set_eval()
 
-        # for iter, input in enumerate(loader):
-        #     m = self.model.forward(input, iter)
-        #     if is_train:
-        #         self.model.backward()
-        #     elif is_test:
-        #         self.model.save_results(self.test_result_dir)
-
-        #     metrics.update(m, self.batch_size)
-        #     print(f"{'T' if is_train else 'V'}{epoch:02}/{iter:05}/{metrics}")
-
-        #     if self.use_logger and is_train:
-        #         total_iter = iter + epoch*self.train_iter_per_epoch
-        #         if total_iter % self.log_freq == 0:
-        #             self.model.forward(self.viz_input, iter=-1)
-        #             self.model.visualize(self.logger, total_iter=total_iter, max_bs=25)
-        
         for iter, input in enumerate(loader):
             if is_train:
-                m_gen = train_step_generator(input,iter)
-                m_dis = train_step_discriminator(input,iter)
+                m_gen = self.train_step_generator(input)
+                m_dis = self.train_step_discriminator(input)
             if is_validation:
-                m_gen = validation_step_generator(input,iter)
-                m_dis = validation_step_discriminator(input,iter)
-            
+                m_gen = self.validation_step_generator(input)
+                m_dis = self.validation_step_discriminator(input)
+            m = {**m_gen, **m_dis}
             metrics.update(m, self.batch_size)
             print(f"{'T' if is_train else 'V'}{epoch:02}/{iter:05}/{metrics}")
             if self.use_logger and is_train:
                 total_iter = iter + epoch*self.train_iter_per_epoch
                 if total_iter % self.log_freq == 0:
-                    self.generator.forward(self.viz_input, iter=-1)
+                    m_gen = self.validation_step_generator(self.viz_input)
+                    m_dis = self.validation_step_discriminator(self.viz_input)
+                    self.log_loss_generator(self.logger,m_gen,total_iter)
+                    self.log_loss_discriminator(self.logger,m_dis,total_iter)
                     self.generator.visualize(self.logger, total_iter=total_iter, max_bs=25)
 
         return metrics
 
+    def log_loss_generator(self,logger,metrics, total_iter):
+        loss_total = metrics["loss"]
+        loss_l1_im = metrics["loss_l1_im"]
+        loss_perc_im = metrics["loss_perc_im"]
+        gloss = metrics["gloss"]
+        logger.add_scalar('Loss_Gen/loss_total', loss_total, total_iter)
+        logger.add_scalar('Loss_Gen/loss_l1_im', loss_l1_im, total_iter)
+        logger.add_scalar('Loss_Gen/loss_perc_im', loss_perc_im, total_iter)
+        logger.add_scalar('Loss_Gen/loss_generator', gloss, total_iter)
     
-    def train_step_generator(input,iter):
+    def log_loss_discriminator(self,logger,metrics, total_iter):
+        d_loss = metrics["d_loss"]
+        d_loss_fake = metrics["d_loss_fake"]
+        d_loss_real = metrics["d_loss_real"]
+        logger.add_scalar('Loss_Dis/d_loss', d_loss, total_iter)
+        logger.add_scalar('Loss_Dis/d_loss_real', d_loss_real, total_iter)
+        logger.add_scalar('Loss_Dis/d_loss_fake', d_loss_fake, total_iter)
+
+    def train_step_generator(self,input):
         generator = self.generator
         discriminator = self.discriminator
+        input_im = input.to(self.device)
+        b  = input_im.shape[0] # batch_size
 
         generator.toggle_grad(True)
         discriminator.toggle_grad(False)
         generator.set_train()
-        discriminator.set_train()
+        discriminator.set_train() # train/eval mode -> no difference since dis doesn't use BN
 
-        generator.reset_optimizer()
-        fake_recon_im, alpha_mask = generator.forward(input,iter)
+        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input)
 
-        d_fake = discriminator.forward(x_fake,iter)
+        # print recon_im and mask
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save('recon.png')
+
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save('recon_flipped.png')
+
+        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
+        # img.save('im_mask.png')
+
+        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
+        # img.save('im_mask_flipped.png')
+
+        # masked_input_im = input_im*recon_im_mask[:b] + (1-recon_im_mask[:b])
+        # detached_input_im = masked_input_im.permute(0,2,3,1)
+        # detached_input_im = detached_input_im.detach()[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_input_im)).convert('RGB')
+        # img.save('masked_img.png')
+
+        d_fake = discriminator.forward(fake_recon_im)
         gloss = losses.compute_bce(d_fake, 1)
 
         # input_im wrong
-        loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=detached_mask[:b])
-        loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=detached_mask[b:])
+        loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
+        loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
 
         loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im)
+        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
 
-        loss_conventional = loss_l1_im + lam_flip*loss_l1_im_flip + lam_perc*(loss_perc_im + lam_flip*loss_perc_im_flip)
-        loss_total = loss_conventional + gloss
+        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
+        loss_total = loss_conventional + self.discriminator_loss*gloss
 
+        generator.reset_optimizer()
         loss_total.backward()
         generator.optimizer_step()
 
         # if self.generator_test is not None:
         #     update_average(self.generator_test, generator, beta=0.999)
 
-        metrics = {'loss': loss_total.item()}
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_perc_im": loss_perc_im.item(),"gloss": gloss.item() }
         return metrics
     
-    def validation_step_generator():
+    def validation_step_generator(self,input):
         generator = self.generator
         discriminator = self.discriminator
-        generator.toggle_grad(generator, False) 
-        discriminator.toggle_grad(discriminator, False) 
+        input_im = input.to(self.device)
+        b  = input_im.shape[0] # batch_size
+
+        generator.toggle_grad(False) 
+        discriminator.toggle_grad(False) 
         generator.set_eval()
         discriminator.set_eval()
-        fake_recon_im, alpha_mask = generator.forward(input,iter)
+        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input)
 
-        d_fake = discriminator.forward(x_fake,iter)
+
+        d_fake = discriminator.forward(fake_recon_im)
         gloss = losses.compute_bce(d_fake, 1)
 
         # input_im wrong
-        loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=detached_mask[:b])
-        loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=detached_mask[b:])
+        loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
+        loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
 
         loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im)
+        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
 
-        loss_conventional = loss_l1_im + lam_flip*loss_l1_im_flip + lam_perc*(loss_perc_im + lam_flip*loss_perc_im_flip)
-        loss_total = loss_conventional + gloss
+        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
+        loss_total = loss_conventional + self.discriminator_loss*gloss
 
-        metrics = {'loss': loss_total.item()}
-        return metric
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_perc_im": loss_perc_im.item(),"gloss": gloss.item() }
+        return metrics
 
-    def train_step_discriminator():
+    def train_step_discriminator(self,input):
         generator = self.generator
         discriminator = self.discriminator
-        toggle_grad(generator, False)
-        toggle_grad(discriminator, True)
-        generator.train()
-        discriminator.train()
+        generator.toggle_grad(False)
+        discriminator.toggle_grad(True)
+        generator.set_train()
+        discriminator.set_train()
 
-        self.optimizer_d.zero_grad()
+        input_im = input.to(self.device)
 
-        x_real = data.get('image').to(self.device)
-        loss_d_full = 0.
+        x_fake, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input_im) # no grad loop -> no grad reuqired here
 
-        x_real.requires_grad_()
-        d_real = discriminator(x_real)
+        d_fake = discriminator.forward(x_fake)
+        d_loss_fake = losses.compute_bce(d_fake, 0)
 
-        d_loss_real = compute_bce(d_real, 1)
-        loss_d_full += d_loss_real
+        # x_real.requires_grad_() # QUESTION: Why required true on input tensor?
+        input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
+        masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
+        d_real = discriminator.forward(masked_input_im)
+        d_loss_real = losses.compute_bce(d_real, 1)
 
-        reg = 10. * compute_grad2(d_real, x_real).mean()
-        loss_d_full += reg
+        # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
+        # loss_d_full += reg
 
-        with torch.no_grad():
-            if self.multi_gpu:
-                latents = generator.module.get_vis_dict()
-                x_fake = generator(**latents)
-            else:
-                x_fake = generator()
+        d_loss = d_loss_fake + d_loss_real
 
+        discriminator.reset_optimizer()
+        d_loss.backward()
+        discriminator.optimizer_step()
+
+        
+
+        # return (d_loss.item(), reg.item(), d_loss_fake.item(), d_loss_real.item())
+        metrics = {"d_loss": d_loss.item(), "d_loss_fake": d_loss_fake.item(), "d_loss_real": d_loss_real.item()}
+        return metrics
+
+
+    def validation_step_discriminator(self, input):
+        generator = self.generator
+        discriminator = self.discriminator
+        generator.toggle_grad(False)
+        discriminator.toggle_grad(True)
+        generator.set_train()
+        discriminator.set_train()
+
+        input_im = input.to(self.device)
+
+        x_fake, recon_im_mask,conf_sigma_l1, conf_sigma_percl = generator.forward(input)
         x_fake.requires_grad_()
-        d_fake = discriminator(x_fake)
+        d_fake = discriminator.forward(x_fake)
+        d_loss_fake = losses.compute_bce(d_fake, 0)
 
-        d_loss_fake = compute_bce(d_fake, 0)
-        loss_d_full += d_loss_fake
+        # x_real.requires_grad_()
+        input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
+        masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
+        d_real = discriminator.forward(masked_input_im)
+        d_loss_real = losses.compute_bce(d_real, 1)
 
-        loss_d_full.backward()
-        self.optimizer_d.step()
+        # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
+        # loss_d_full += reg
 
-        d_loss = (d_loss_fake + d_loss_real)
+        d_loss = d_loss_fake + d_loss_real
 
-        return (
-            d_loss.item(), reg.item(), d_loss_fake.item(), d_loss_real.item())
-
-
-def validation_step_discriminator():
-    pass
+        # return (d_loss.item(), reg.item(), d_loss_fake.item(), d_loss_real.item())
+        metrics = {"d_loss": d_loss.item(), "d_loss_fake": d_loss_fake.item(), "d_loss_real": d_loss_real.item()}
+        return metrics
 

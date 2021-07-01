@@ -25,7 +25,7 @@ class Unsup3d_Generator():
         self.z_translation_range = cfgs.get('z_translation_range', 0.1)
         self.lam_perc = cfgs.get('lam_perc', 1)
         self.lam_flip = cfgs.get('lam_flip', 0.5)
-        self.lr = cfgs.get('lr', 1e-4)
+        self.lr = cfgs.get('lr_generator', 1e-4)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
         self.lam_perc_decrease_start_epoch = cfgs.get('lam_perc_decrease_start_epoch', 2)
@@ -35,11 +35,12 @@ class Unsup3d_Generator():
         self.renderer = Renderer(cfgs)
 
         ## networks and optimizers
-        if self.depthmap_mode == 'resnet':
-            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
+        if self.depthmap_size == 64:
+            self.netD = networks.DepthMapResNet64(cin=3, cout=1, nf=64,activation=None)
         else:
-            self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256, activation=None)
+            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
         self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+        # self.netA = networks.AlbedoResNet(cin=3, cout=3, nf=64)
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
@@ -48,13 +49,6 @@ class Unsup3d_Generator():
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
             lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
-
-        ## init perc loss network
-        if self.use_lpips == True:
-            loss_fn = lpips.LPIPS(net='alex')
-            self.PerceptualLoss = loss_fn.to(device=self.device)
-        else:
-            self.PerceptualLoss = networks.PerceptualLoss(requires_grad=False).to(device=self.device)
 
         ## depth rescaler: -1~1 -> min_deph~max_deph
         self.depth_rescaler = lambda d : (1+d)/2 *self.max_depth + (1-d)/2 *self.min_depth
@@ -109,24 +103,15 @@ class Unsup3d_Generator():
         for net_name in self.network_names:
             getattr(self, net_name).eval()
 
-
-    
     def reset_optimizer(self):
         for optim_name in self.optimizer_names:
-            getattr(self, optim_name).zero_grad(
+            getattr(self, optim_name).zero_grad()
     
     def optimizer_step(self):
         for optim_name in self.optimizer_names:
             getattr(self, optim_name).step()
     
-    # def backward(self, loss):
-    #     for optim_name in self.optimizer_names:
-    #         getattr(self, optim_name).zero_grad()
-    #     self.loss.backward()
-    #     for optim_name in self.optimizer_names:
-    #         getattr(self, optim_name).step()
-
-    def forward(self, input,iter):
+    def forward(self, input):
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
@@ -148,14 +133,27 @@ class Unsup3d_Generator():
 
         ## clamp border depth
         _, h_depth, w_depth = self.canon_depth_raw.shape 
-        depth_border = torch.zeros(1,h_depth,w_depth-4).to(self.input_im.device)
-        depth_border = nn.functional.pad(depth_border, (2,2), mode='constant', value=1)
+        if self.depthmap_size == 32:
+            border_width = 4
+        elif self.depthmap_size == 64:
+            border_width = 8
+        depth_border = torch.zeros(1,h_depth,w_depth-border_width).to(self.input_im.device)
+        depth_border = nn.functional.pad(depth_border, (int(border_width/2),int(border_width/2)), mode='constant', value=1)
         self.canon_depth = self.canon_depth*(1-depth_border) + depth_border *self.border_depth
         self.canon_depth = torch.cat([self.canon_depth, self.canon_depth.flip(2)], 0)  # flip
+
+        canon_depth = self.canon_depth.detach()[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(canon_depth))
+        img.save('canon_depth.png')
+
 
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
+
+        canon_albedo = self.canon_albedo.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(canon_albedo)).convert('RGB')
+        img.save('canon_albedo.png')
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW
@@ -165,7 +163,7 @@ class Unsup3d_Generator():
         self.canon_light_a = canon_light[:,:1] # ambience term
         self.canon_light_b = canon_light[:,1:2] # diffuse term
         canon_light_dxy = canon_light[:,2:]
-        self.canon_light_d = torch.cat([canon_light_dxy, -torch.ones(b*2,1).to(self.input_im.device)], 1)
+        self.canon_light_d = torch.cat([canon_light_dxy, -torch.ones(b*2,1).to(self.input_im.device)], 1) # pytorch special: light direction in same direction as normals
         self.canon_light_d = self.canon_light_d / ((self.canon_light_d**2).sum(1, keepdim=True))**0.5  # diffuse light direction
         self.canon_light_b = torch.clamp(self.canon_light_b, min=-0.8, max=1)
         self.lighting = { "ambient": self.canon_light_a, "diffuse": self.canon_light_b, "direction": self.canon_light_d}
@@ -187,10 +185,10 @@ class Unsup3d_Generator():
         self.recon_im = self.recon_im.permute(0,3,1,2)
         self.alpha_mask = self.alpha_mask.unsqueeze(1)
 
-        recon_im_mask_both = self.recon_im_mask[:b] * self.recon_im_mask[b:]
-        detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
+        # recon_im_mask_both = self.recon_im_mask[:b] * self.recon_im_mask[b:]
+        # detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
 
-        return self.recon_im, self.alpha_mask
+        return self.recon_im, self.recon_im_mask, self.conf_sigma_l1, self.conf_sigma_percl
 
         # if self.conf_map_enabled:
         #     self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
@@ -305,12 +303,12 @@ class Unsup3d_Generator():
         reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
         ## write summary
-        logger.add_scalar('Loss/loss_total', self.loss_total, total_iter)
-        logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
-        logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
+        # logger.add_scalar('Loss/loss_total', self.loss_total, total_iter)
+        # logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
+        # logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
 
-        logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
-        logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
+        # logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
+        # logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
 
         logger.add_histogram('Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']

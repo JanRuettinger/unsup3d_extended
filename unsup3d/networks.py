@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision
 from . import utils
+from math import log2
 
 EPS = 1e-7
 
@@ -140,26 +141,66 @@ class DepthMapResNet(nn.Module):
             BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
             # BasicBlock(nf*8, nf*4, norm_layer=nn.InstanceNorm2d),
             nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
-            # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
-            # nn.GroupNorm(16, nf),
-            # nn.BatchNorm2d(nf),
-            # nn.ReLU(inplace=True),
             nn.Conv2d(nf*8, nf*4, kernel_size=5, stride=1, padding=2, bias=False),
             nn.GroupNorm(16*4, nf*4),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
-            # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
-            # nn.GroupNorm(16, nf),
-            # nn.BatchNorm2d(nf),
-            # nn.ReLU(inplace=True),
             nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
             nn.GroupNorm(16*2, nf*2),
             nn.ReLU(inplace=True),
-            # nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
-            # # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
-            # # nn.GroupNorm(16, nf),
-            # # nn.BatchNorm2d(nf),
-            # # nn.ReLU(inplace=True),
+            nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16, nf),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False),
+            ]
+        if activation is not None:
+            network += [activation()]
+        self.network = nn.Sequential(*network)
+    def forward(self, input):
+        return self.network(input)
+
+
+class DepthMapResNet64(nn.Module):
+    def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
+        super(DepthMapResNet64, self).__init__()
+        network = [
+            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128 -> 64x64
+            nn.GroupNorm(16, nf),
+            # nn.InstanceNorm2d(nf),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 32x32
+            nn.GroupNorm(16*2, nf*2),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*2, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.GroupNorm(16*4, nf*4),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.GroupNorm(16*8, nf*8),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # BasicBlock(nf*4, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            # BasicBlock(nf*8, nf*4, norm_layer=nn.InstanceNorm2d),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Conv2d(nf*8, nf*4, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*4, nf*4),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*2, nf*2),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
+            # nn.ConvTranspose2d(nf*2, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
+            # nn.GroupNorm(16, nf),
+            # nn.BatchNorm2d(nf),
+            # nn.ReLU(inplace=True),
             # nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
             # nn.GroupNorm(16, nf),
             # nn.ReLU(inplace=True),
@@ -180,115 +221,74 @@ class DepthMapResNet(nn.Module):
         return self.network(input)
 
 
-class DepthMapNet64(nn.Module):
-    def __init__(self, cin, cout, zdim=128, nf=64, activation=nn.Tanh):
-        super(DepthMapNet64, self).__init__()
-        ## downsampling
+class AlbedoResNet(nn.Module):
+    def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
+        super(AlbedoResNet, self).__init__()
         network = [
-            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128x128 -> 64x64
+            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128 -> 64x64
             nn.GroupNorm(16, nf),
+            # nn.InstanceNorm2d(nf),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(nf, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 32x32
             nn.GroupNorm(16*2, nf*2),
+            # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*2, nf*3, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
-            nn.GroupNorm(16*3, nf*3),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*3, nf*4, kernel_size=4, stride=2, padding=1, bias=False), # 16x16 -> 8x8
+            nn.Conv2d(nf*2, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
             nn.GroupNorm(16*4, nf*4),
+            # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*4, nf*5, kernel_size=4, stride=2, padding=1, bias=False), # 8x8 -> 4x4
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.GroupNorm(16*8, nf*8),
+            # nn.InstanceNorm2d(nf*2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*5, zdim, kernel_size=4, stride=1, padding=0, bias=False), # 4x4 -> 1x1
-            nn.ReLU(inplace=True)]
-        ## upsampling
-        network += [
-            # 32x32 depthmap
-            nn.ConvTranspose2d(zdim, nf*5, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
+            # BasicBlock(nf*4, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            # BasicBlock(nf*8, nf*4, norm_layer=nn.InstanceNorm2d),
+            nn.ConvTranspose2d(nf*8, nf*6, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 32x32
+            nn.GroupNorm(16*6, nf*6),
+            nn.BatchNorm2d(nf*6),
             nn.ReLU(inplace=True),
-            nn.Conv2d(nf*5, nf*5, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*5, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 4x4 -> 8x8
+            # nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            # nn.Conv2d(nf*6, nf*6, kernel_size=5, stride=1, padding=2, bias=False),
+            # nn.GroupNorm(16*6, nf*6),
+            # nn.ReLU(inplace=True),
+            # nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.ConvTranspose2d(nf*6, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
             nn.GroupNorm(16*4, nf*4),
+            nn.BatchNorm2d(nf*4),
             nn.ReLU(inplace=True),
-            nn.Conv2d(nf*4, nf*4, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16*4, nf*4),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
+            # nn.Conv2d(nf*6, nf*4, kernel_size=5, stride=1, padding=2, bias=False),
+            # nn.GroupNorm(16*4, nf*4),
+            # nn.ReLU(inplace=True),
+            # nn.Upsample(scale_factor=2, mode='nearest'),  # 32x32 -> 64x64
+            # nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 64x64
+            # nn.GroupNorm(16*2, nf*2),
+            # nn.BatchNorm2d(nf*2),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            # nn.GroupNorm(16, nf),
+            # nn.ReLU(inplace=True),
+            # nn.Upsample(scale_factor=2, mode='nearest'),  # 64x64 -> 128x128
+            nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 128x128
             nn.GroupNorm(16*2, nf*2),
+            nn.BatchNorm2d(nf*2),
             nn.ReLU(inplace=True),
-            nn.Conv2d(nf*2, nf*2, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16*2, nf*2),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*2, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
-            nn.GroupNorm(16*2, nf*2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf*2, nf, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
             nn.GroupNorm(16, nf),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32 => DEBUG
-            nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16, nf),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
+            nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False),
+            ]
         if activation is not None:
             network += [activation()]
         self.network = nn.Sequential(*network)
-
     def forward(self, input):
         return self.network(input)
 
-class DepthMapNet(nn.Module):
-    def __init__(self, cin, cout, zdim=128, nf=64, activation=nn.Tanh):
-        super(DepthMapNet, self).__init__()
-        ## downsampling
-        network = [
-            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128x128 -> 64x64
-            nn.GroupNorm(16, nf),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 32x32
-            nn.GroupNorm(16*2, nf*2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*2, nf*3, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
-            nn.GroupNorm(16*3, nf*3),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*3, nf*4, kernel_size=4, stride=2, padding=1, bias=False), # 16x16 -> 8x8
-            nn.GroupNorm(16*4, nf*4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*4, nf*5, kernel_size=4, stride=2, padding=1, bias=False), # 8x8 -> 4x4
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(nf*5, zdim, kernel_size=4, stride=1, padding=0, bias=False), # 4x4 -> 1x1
-            nn.ReLU(inplace=True)]
-        ## upsampling
-        network += [
-            # 32x32 depthmap
-            nn.ConvTranspose2d(zdim, nf*5, kernel_size=4, stride=1, padding=0, bias=False),  # 1x1 -> 4x4
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf*5, nf*5, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*5, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 4x4 -> 8x8
-            nn.GroupNorm(16*4, nf*4),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf*4, nf*4, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16*4, nf*4),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*4, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 16x16
-            nn.GroupNorm(16*2, nf*2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf*2, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16, nf),
-            nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32 => DEBUG
-            nn.Conv2d(nf, nf, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.GroupNorm(16, nf),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False)]
-        if activation is not None:
-            network += [activation()]
-        self.network = nn.Sequential(*network)
-
-    def forward(self, input):
-        return self.network(input)
 
 class AlbedoMapNet(nn.Module):
     def __init__(self, cin, cout, zdim=128, nf=64, activation=nn.Tanh):
