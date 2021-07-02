@@ -5,6 +5,7 @@ import torch
 from . import meters
 from . import utils
 from . import losses
+from . import networks
 from .dataloaders import get_data_loaders
 import lpips
 from PIL import Image
@@ -29,6 +30,8 @@ class Trainer():
         self.lam_perc = cfgs.get('lam_perc', 1)
         self.lam_flip = cfgs.get('lam_flip', 0.5)
         self.discriminator_loss = cfgs.get('discriminator_loss', 0.1)
+        self.use_lpips = cfgs.get('use_lpips', False)
+        self.discriminator_loss_start_epoch = cfgs.get('discriminator_loss_start_epoch', False)
 
         self.metrics_trace = meters.MetricsTrace()
         self.make_metrics = lambda m=None: meters.StandardMetrics(m)
@@ -38,7 +41,11 @@ class Trainer():
         self.discriminator.trainer = self
         self.train_loader, self.val_loader, self.test_loader = get_data_loaders(cfgs)
         loss_fn = lpips.LPIPS(net='alex')
-        self.PerceptualLoss = loss_fn.to(device=self.device)
+
+        if self.use_lpips:
+            self.PerceptualLoss = loss_fn.to(device=self.device)
+        else:
+            self.PerceptualLoss = networks.PerceptualLoss().to(device=self.device)
         #         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
         #         self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
 
@@ -163,10 +170,10 @@ class Trainer():
 
         for iter, input in enumerate(loader):
             if is_train:
-                m_gen = self.train_step_generator(input)
+                m_gen = self.train_step_generator(input, epoch)
                 m_dis = self.train_step_discriminator(input)
             if is_validation:
-                m_gen = self.validation_step_generator(input)
+                m_gen = self.validation_step_generator(input, epoch)
                 m_dis = self.validation_step_discriminator(input)
             m = {**m_gen, **m_dis}
             metrics.update(m, self.batch_size)
@@ -174,7 +181,7 @@ class Trainer():
             if self.use_logger and is_train:
                 total_iter = iter + epoch*self.train_iter_per_epoch
                 if total_iter % self.log_freq == 0:
-                    m_gen = self.validation_step_generator(self.viz_input)
+                    m_gen = self.validation_step_generator(self.viz_input, epoch)
                     m_dis = self.validation_step_discriminator(self.viz_input)
                     self.log_loss_generator(self.logger,m_gen,total_iter)
                     self.log_loss_discriminator(self.logger,m_dis,total_iter)
@@ -200,7 +207,7 @@ class Trainer():
         logger.add_scalar('Loss_Dis/d_loss_real', d_loss_real, total_iter)
         logger.add_scalar('Loss_Dis/d_loss_fake', d_loss_fake, total_iter)
 
-    def train_step_generator(self,input):
+    def train_step_generator(self,input, epoch):
         generator = self.generator
         discriminator = self.discriminator
         input_im = input.to(self.device)
@@ -243,11 +250,20 @@ class Trainer():
         loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
         loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
 
-        loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
+        if self.use_lpips:
+            loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
+            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
+        else:
+            loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,:1])
+            loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,1:])
 
         loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
-        loss_total = loss_conventional + self.discriminator_loss*gloss
+        if epoch > self.discriminator_loss_start_epoch:
+            loss_total = loss_conventional + self.discriminator_loss*gloss
+        else:
+            gloss = gloss*0
+            loss_total = loss_conventional
+
 
         generator.reset_optimizer()
         loss_total.backward()
@@ -256,10 +272,10 @@ class Trainer():
         # if self.generator_test is not None:
         #     update_average(self.generator_test, generator, beta=0.999)
 
-        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_perc_im": loss_perc_im.item(),"gloss": gloss.item() }
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
         return metrics
     
-    def validation_step_generator(self,input):
+    def validation_step_generator(self,input, epoch):
         generator = self.generator
         discriminator = self.discriminator
         input_im = input.to(self.device)
@@ -279,13 +295,22 @@ class Trainer():
         loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
         loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
 
-        loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-        loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
+        if self.use_lpips:
+            loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
+            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
+        else:
+            loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,:1])
+            loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,1:])
 
         loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
-        loss_total = loss_conventional + self.discriminator_loss*gloss
 
-        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_perc_im": loss_perc_im.item(),"gloss": gloss.item() }
+        if epoch > self.discriminator_loss_start_epoch:
+            loss_total = loss_conventional + self.discriminator_loss*gloss
+        else:
+            gloss = 0*gloss
+            loss_total = loss_conventional
+
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
         return metrics
 
     def train_step_discriminator(self,input):
@@ -297,31 +322,28 @@ class Trainer():
         discriminator.set_train()
 
         input_im = input.to(self.device)
-
-        x_fake, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input_im) # no grad loop -> no grad reuqired here
-
+        x_fake, recon_im_mask, _, _ = generator.forward(input_im) # no grad loop -> no grad reuqired here
         d_fake = discriminator.forward(x_fake)
         d_loss_fake = losses.compute_bce(d_fake, 0)
+        d_full_loss = 0.
 
-        # x_real.requires_grad_() # QUESTION: Why required true on input tensor?
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         d_real = discriminator.forward(masked_input_im)
         d_loss_real = losses.compute_bce(d_real, 1)
 
+        # input_im.requires_grad_() # QUESTION: Why required true on input tensor?
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
-        # loss_d_full += reg
+        # d_full_loss += reg
 
-        d_loss = d_loss_fake + d_loss_real
+        d_full_loss += d_loss_fake + d_loss_real
 
         discriminator.reset_optimizer()
-        d_loss.backward()
+        d_full_loss.backward()
         discriminator.optimizer_step()
-
         
-
         # return (d_loss.item(), reg.item(), d_loss_fake.item(), d_loss_real.item())
-        metrics = {"d_loss": d_loss.item(), "d_loss_fake": d_loss_fake.item(), "d_loss_real": d_loss_real.item()}
+        metrics = {"d_loss": d_full_loss.item(), "d_loss_fake": d_loss_fake.item(), "d_loss_real": d_loss_real.item()}
         return metrics
 
 
@@ -335,7 +357,7 @@ class Trainer():
 
         input_im = input.to(self.device)
 
-        x_fake, recon_im_mask,conf_sigma_l1, conf_sigma_percl = generator.forward(input)
+        x_fake, recon_im_mask,_, _ = generator.forward(input)
         x_fake.requires_grad_()
         d_fake = discriminator.forward(x_fake)
         d_loss_fake = losses.compute_bce(d_fake, 0)

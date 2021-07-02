@@ -33,14 +33,26 @@ class Unsup3d_Generator():
         self.conf_map_enabled = cfgs.get('conf_map_enabled', True)
         self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
         self.renderer = Renderer(cfgs)
+        self.alebdo_mode = cfgs.get('use_resnet_albedonet', False)
+        self.depthmap_mode = cfgs.get('use_resnet_depthmapnet', False)
 
         ## networks and optimizers
         if self.depthmap_size == 64:
-            self.netD = networks.DepthMapResNet64(cin=3, cout=1, nf=64,activation=None)
+            if self.depthmap_mode:
+                self.netD = networks.DepthMapResNet64(cin=3, cout=1, nf=64,activation=None)
+            else:
+                self.netD = networks.DepthMapNet64(cin=3, cout=1, nf=64,zdim=256,activation=None)
         else:
-            self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
-        self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
-        # self.netA = networks.AlbedoResNet(cin=3, cout=3, nf=64)
+            if self.depthmap_mode:
+                self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
+            else:
+                self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256,activation=None)
+
+        if self.alebdo_mode:
+            self.netA = networks.AlbedoMapResNet(cin=3, cout=3, nf=64)
+        else:
+            self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
+
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
