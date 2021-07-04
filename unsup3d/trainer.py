@@ -262,7 +262,7 @@ class Trainer():
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
             gloss = gloss*0
-            loss_total = loss_conventional
+            loss_total = loss_conventional + gloss
 
 
         generator.reset_optimizer()
@@ -308,7 +308,7 @@ class Trainer():
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
             gloss = 0*gloss
-            loss_total = loss_conventional
+            loss_total = loss_conventional + gloss
 
         metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
         return metrics
