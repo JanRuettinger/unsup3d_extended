@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 40
 batch_size: 25
 # checkpoint_dir: results/celeba
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/03/01
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN/no_disc_loss
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -29,9 +29,9 @@ xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 2 # 1
 lam_perc_decrease_start_epoch: 8
-discriminator_loss_start_epoch: 2
+discriminator_loss_start_epoch: -1
 lam_flip: 0.6
-use_lpips: false
+use_lpips: true
 use_depthmap_prior: true
 conf_map_enabled: true
 lr_generator: 0.0001
@@ -41,7 +41,7 @@ use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 
 # discriminator
-lr_discriminator: 0.0001
+lr_discriminator: 0.001
 discriminator_loss: 0
 
 ## renderer
