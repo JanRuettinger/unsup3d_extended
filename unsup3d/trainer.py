@@ -1,5 +1,5 @@
 import os, json
-import glob
+import pathlib
 from datetime import datetime
 import torch
 from . import meters
@@ -140,8 +140,8 @@ class Trainer():
         print(f"Optimizing to {self.num_epochs} epochs")
         for epoch in range(start_epoch, self.num_epochs):
             self.current_epoch = epoch
-            metrics = self.run_epoch(self.train_loader, epoch)
-            self.metrics_trace.append("train", metrics)
+            # metrics = self.run_epoch(self.train_loader, epoch)
+            # self.metrics_trace.append("train", metrics)
 
             with torch.no_grad():
                 metrics = self.run_epoch(self.val_loader, epoch, is_validation=True)
@@ -176,6 +176,10 @@ class Trainer():
             if is_validation:
                 m_gen = self.validation_step_generator(input, epoch)
                 m_dis = self.validation_step_discriminator(input)
+                if iter < 5:
+                    # save predictions
+                    self.save_example_predictions(input, iter)
+            
             m = {**m_gen, **m_dis}
             metrics.update(m, self.batch_size)
             print(f"{'T' if is_train else 'V'}{epoch:02}/{iter:05}/{metrics}")
@@ -417,3 +421,22 @@ class Trainer():
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         discriminator.forward(masked_input_im)
         discriminator.visualize(logger, total_iter, fake=False)
+
+
+    def save_example_predictions(self, input, iter):
+        b  = input.shape[0] # batch_siz
+        recon_im, recon_im_mask,_, _ = self.generator.forward(input)
+        img_dir = pathlib.Path(self.checkpoint_dir) / 'imgs'
+        img_dir.mkdir(parents=True, exist_ok=True) 
+
+        # print recon_im and mask
+        detached_mask = recon_im.detach().permute(0,2,3,1).cpu().numpy()*255
+        for key,value in enumerate(detached_mask):
+            img = Image.fromarray(np.uint8(value)).convert('RGB')
+            img_path = img_dir / f'recon_im_{iter}_{key}.png'
+            img.save(img_path)
+
+        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
+        # img.save('im_mask.png')
+
