@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 40
 batch_size: 25
 # checkpoint_dir: results/celeba
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_3/64_plain
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_3/32_lse
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -14,7 +14,7 @@ log_freq: 100
 ## dataloader
 num_workers: 4
 image_size: 128
-depthmap_size: 64
+depthmap_size: 32
 crop: [58, 48, 160, 160]
 load_gt_depth: false
 # train_val_data_dir: /scratch/local/ssd/janhr/data/celeba_cropped
@@ -41,8 +41,8 @@ use_resnet_depthmapnet: true
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0
-discriminator_loss_type: bce
+discriminator_loss: 0.1
+discriminator_loss_type: lse
 
 ## renderer
 rot_center_depth: 1.0
@@ -53,4 +53,3 @@ blend_param_gamma: 0.00001
 faces_per_pixel: 6
 znear_render: 0.8
 zfar_render: 1.2
-
