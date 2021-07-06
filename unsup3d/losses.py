@@ -7,6 +7,12 @@ def compute_bce(d_out, target):
     targets = d_out.new_full(size=d_out.size(), fill_value=target)
     loss = F.binary_cross_entropy_with_logits(d_out, targets)
     return loss
+
+def compute_lse(d_out, target):
+    targets = d_out.new_full(size=d_out.size(), fill_value=target)
+    d_out = F.sigmoid(d_out)
+    loss = F.mse_loss(d_out, targets, reduction='mean')
+    return loss
     
 def compute_grad2(d_out, x_in):
     batch_size = x_in.size(0)

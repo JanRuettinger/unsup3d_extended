@@ -32,6 +32,7 @@ class Trainer():
         self.discriminator_loss = cfgs.get('discriminator_loss', 0.1)
         self.use_lpips = cfgs.get('use_lpips', False)
         self.discriminator_loss_start_epoch = cfgs.get('discriminator_loss_start_epoch', False)
+        self.discriminator_loss_type = cfgs.get('discriminator_loss_type', "bce")
 
         self.metrics_trace = meters.MetricsTrace()
         self.make_metrics = lambda m=None: meters.StandardMetrics(m)
@@ -186,6 +187,8 @@ class Trainer():
                     self.log_loss_generator(self.logger,m_gen,total_iter)
                     self.log_loss_discriminator(self.logger,m_dis,total_iter)
                     self.generator.visualize(self.logger, total_iter=total_iter, max_bs=25)
+                    self.visualization_helper_discriminator(self.viz_input, self.logger, total_iter=total_iter, max_bs=25)
+                    # self.discriminator.visualize(self.logger, total_iter=total_iter, max_bs=25)
 
         return metrics
 
@@ -244,7 +247,10 @@ class Trainer():
         # img.save('masked_img.png')
 
         d_fake = discriminator.forward(fake_recon_im)
-        gloss = losses.compute_bce(d_fake, 1)
+        if self.discriminator_loss_type == "bce":
+            gloss = losses.compute_bce(d_fake, 1)
+        else:
+            gloss = losses.compute_lse(d_fake, 1)
 
         # input_im wrong
         loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
@@ -289,7 +295,10 @@ class Trainer():
 
 
         d_fake = discriminator.forward(fake_recon_im)
-        gloss = losses.compute_bce(d_fake, 1)
+        if self.discriminator_loss_type == "bce":
+            gloss = losses.compute_bce(d_fake, 1)
+        else:
+            gloss = losses.compute_lse(d_fake, 1)
 
         # input_im wrong
         loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
@@ -320,17 +329,23 @@ class Trainer():
         discriminator.toggle_grad(True)
         generator.set_train()
         discriminator.set_train()
+        d_full_loss = 0.
 
         input_im = input.to(self.device)
         x_fake, recon_im_mask, _, _ = generator.forward(input_im) # no grad loop -> no grad reuqired here
         d_fake = discriminator.forward(x_fake)
-        d_loss_fake = losses.compute_bce(d_fake, 0)
-        d_full_loss = 0.
+        if self.discriminator_loss_type == "bce":
+            d_loss_fake = losses.compute_bce(d_fake, 0)
+        else:
+            d_loss_fake = losses.compute_lse(d_fake, 0)
 
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         d_real = discriminator.forward(masked_input_im)
-        d_loss_real = losses.compute_bce(d_real, 1)
+        if self.discriminator_loss_type == "bce":
+            d_loss_real = losses.compute_bce(d_real, 1)
+        else:
+            d_loss_real = losses.compute_lse(d_real, 1)
 
         # input_im.requires_grad_() # QUESTION: Why required true on input tensor?
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
@@ -351,22 +366,27 @@ class Trainer():
         generator = self.generator
         discriminator = self.discriminator
         generator.toggle_grad(False)
-        discriminator.toggle_grad(True)
-        generator.set_train()
-        discriminator.set_train()
+        discriminator.toggle_grad(False)
+        generator.set_eval()
+        discriminator.set_eval()
 
         input_im = input.to(self.device)
 
         x_fake, recon_im_mask,_, _ = generator.forward(input)
-        x_fake.requires_grad_()
         d_fake = discriminator.forward(x_fake)
-        d_loss_fake = losses.compute_bce(d_fake, 0)
+        if self.discriminator_loss_type == "bce":
+            d_loss_fake = losses.compute_bce(d_fake, 0)
+        else:
+            d_loss_fake = losses.compute_lse(d_fake, 0)
 
         # x_real.requires_grad_()
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         d_real = discriminator.forward(masked_input_im)
-        d_loss_real = losses.compute_bce(d_real, 1)
+        if self.discriminator_loss_type == "bce":
+            d_loss_real = losses.compute_bce(d_real, 1)
+        else:
+            d_loss_real = losses.compute_lse(d_real, 1)
 
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
         # loss_d_full += reg
@@ -377,3 +397,23 @@ class Trainer():
         metrics = {"d_loss": d_loss.item(), "d_loss_fake": d_loss_fake.item(), "d_loss_real": d_loss_real.item()}
         return metrics
 
+
+    def visualization_helper_discriminator(self, input, logger, total_iter, max_bs=25):
+        generator = self.generator
+        discriminator = self.discriminator
+        generator.toggle_grad(False)
+        discriminator.toggle_grad(False)
+        generator.set_eval()
+        discriminator.set_eval()
+
+        input_im = input.to(self.device)
+
+        x_fake, recon_im_mask,_, _ = generator.forward(input)
+        discriminator.forward(x_fake)
+        discriminator.visualize(logger, total_iter, fake=True)
+
+        # x_real.requires_grad_()
+        input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
+        masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
+        discriminator.forward(masked_input_im)
+        discriminator.visualize(logger, total_iter, fake=False)

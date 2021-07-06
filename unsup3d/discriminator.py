@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import torchvision
 from . import networks
@@ -55,7 +56,8 @@ class Unsup3D_Discriminator():
 
   def forward(self,input):
     self.input_im = input.to(self.device)
-    return self.model(self.input_im)
+    self.output = self.model(self.input_im)
+    return self.output
 
         #         #### GAN losses ####
         # # Generator loss & generator optimization
@@ -89,3 +91,11 @@ class Unsup3D_Discriminator():
 
         # # loss_d_full.backward()
         # # self.optimizer_d.step()
+
+  def visualize(self, logger, total_iter, fake):
+    # b, c, h, w = self.input_im.shape
+    # b0 = min(max_bs, b)
+
+    output_name = "fake" if fake == True else "real"
+    output = F.sigmoid(self.output) 
+    logger.add_histogram(f"Discriminator/discriminator_output_{output_name}", output, total_iter)
