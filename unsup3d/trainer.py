@@ -140,8 +140,8 @@ class Trainer():
         print(f"Optimizing to {self.num_epochs} epochs")
         for epoch in range(start_epoch, self.num_epochs):
             self.current_epoch = epoch
-            # metrics = self.run_epoch(self.train_loader, epoch)
-            # self.metrics_trace.append("train", metrics)
+            metrics = self.run_epoch(self.train_loader, epoch)
+            self.metrics_trace.append("train", metrics)
 
             with torch.no_grad():
                 metrics = self.run_epoch(self.val_loader, epoch, is_validation=True)
