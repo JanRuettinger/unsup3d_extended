@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 100
 batch_size: 16
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_6/test_loss_type_lse
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_7/GAN_3/32_bce_medium_loss_weight
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/celeba/perc_loss_layer/lpips
 save_checkpoint_freq: 1
 keep_num_checkpoint: 2
@@ -28,7 +28,7 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 0.5 # 1
-lam_perc_decrease_start_epoch: 8
+lam_perc_decrease_start_epoch: 1000
 discriminator_loss_start_epoch: -1
 lam_flip: 0.6
 use_lpips: true
@@ -40,9 +40,9 @@ use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 
 # discriminator
-lr_discriminator: 0.001
+lr_discriminator: 0.00002
 discriminator_loss: 0
-discriminator_loss_type: lse
+discriminator_loss_type: bce
 
 ## renderer
 rot_center_depth: 1.0
