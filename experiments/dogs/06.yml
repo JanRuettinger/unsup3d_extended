@@ -2,10 +2,10 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 10
+batch_size: 25
 # checkpoint_dir: results/cat
-# checkpoint_dir: /scratch/local/ssd/janhr/results/debug_4/20_num_faces_per_pixel
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/25_03/20_num_faces_per_pixel
+# checkpoint_dir: /scratch/local/ssd/janhr/results/debug/dogs
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_3/dogs_64_plain
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -22,22 +22,30 @@ load_gt_depth: false
 # train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
 train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/dogs_cropped
 
-# model
+
+# generator
 model_name: unsup3d_celeba
-min_depth: 0.9
-max_depth: 1.1
+min_depth: 0.7
+max_depth: 1.3
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 1 # 1
+lam_perc: 2 # 1
+lam_perc_decrease_start_epoch: 10000
+discriminator_loss_start_epoch: -1
+lam_flip: 0.6
 use_lpips: true
 use_depthmap_prior: true
 conf_map_enabled: true
-lam_perc_decrease_start_epoch: 8
-lam_flip: 0.6
-lr: 0.0001
-depth_network: resnet
+lr_generator: 0.0001
 num_faces_per_square: 2 # 2 -> 4 not implemented right now 
+use_resnet_albedonet: false
+use_resnet_depthmapnet: true
+
+# discriminator
+lr_discriminator: 0.001
+discriminator_loss: 0.0
+discriminator_loss_type: bce
 
 ## renderer
 rot_center_depth: 1.0
@@ -45,6 +53,6 @@ fov: 10  # in degrees
 tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
-faces_per_pixel: 20
-znear_render: 0.7
-zfar_render: 1.3
+faces_per_pixel: 6
+znear_render: 0.6
+zfar_render: 1.4

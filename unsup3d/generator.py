@@ -123,7 +123,7 @@ class Unsup3d_Generator():
         for optim_name in self.optimizer_names:
             getattr(self, optim_name).step()
     
-    def forward(self, input):
+    def forward(self, input, random_view=None):
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
@@ -186,6 +186,13 @@ class Unsup3d_Generator():
             self.view[:,:3] *math.pi/180 *self.xyz_rotation_range,
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
+        
+        if random_view is not None:
+            random_view = random_view.repeat(2,1)
+            self.view = torch.cat([
+            random_view[:,:3] *math.pi/180 *self.xyz_rotation_range,
+            random_view[:,3:5] *self.xy_translation_range,
+            random_view[:,5:] *self.z_translation_range], 1)
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces

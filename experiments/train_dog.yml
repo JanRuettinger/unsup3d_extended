@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 10
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_7/dogs
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_7/dogs_generated_fakes
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -41,7 +41,7 @@ use_resnet_depthmapnet: true
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0
+discriminator_loss: 0.01
 discriminator_loss_type: bce
 
 ## renderer
