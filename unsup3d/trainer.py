@@ -250,8 +250,8 @@ class Trainer():
         # img = Image.fromarray(np.uint8(detached_input_im)).convert('RGB')
         # img.save('masked_img.png')
 
-        d_fake = discriminator.forward(fake_recon_im)
-        d_fake = torch.clamp(d_fake,0,1)*2 -1 
+        fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
+        d_fake = discriminator.forward(fake_recon_im_disc)
         if self.discriminator_loss_type == "bce":
             gloss = losses.compute_bce(d_fake, 1)
         else:
@@ -272,7 +272,7 @@ class Trainer():
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
-            gloss = 0
+            gloss *= 0
             loss_total = loss_conventional
 
 
@@ -298,8 +298,8 @@ class Trainer():
         discriminator.set_eval()
         fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input)
 
-        fake_recon_im = torch.clamp(fake_recon_im,0,1)*2 -1 
-        d_fake = discriminator.forward(fake_recon_im)
+        fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
+        d_fake = discriminator.forward(fake_recon_im_disc)
         if self.discriminator_loss_type == "bce":
             gloss = losses.compute_bce(d_fake, 1)
         else:
@@ -321,7 +321,7 @@ class Trainer():
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
-            gloss = 0
+            gloss *= 0
             loss_total = loss_conventional
 
         metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
@@ -345,9 +345,9 @@ class Trainer():
         x_fake, recon_im_mask, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
 
         # print recon_im and mask
-        detached_x_fake = x_fake.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        img.save('random_view_fakes.png')
+        # detached_x_fake = x_fake.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save('random_view_fakes.png')
 
         x_fake = torch.clamp(x_fake,0,1)*2 -1 
         d_fake = discriminator.forward(x_fake)
@@ -358,7 +358,7 @@ class Trainer():
 
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
-        masked_input_im = masked_input_im * 2 -1
+        masked_input_im = torch.clamp(masked_input_im, 0, 1) *2 -1
         d_real = discriminator.forward(masked_input_im)
         if self.discriminator_loss_type == "bce":
             d_loss_real = losses.compute_bce(d_real, 1)
@@ -391,6 +391,7 @@ class Trainer():
         input_im = input.to(self.device)
 
         x_fake, recon_im_mask,_, _ = generator.forward(input)
+        x_fake = torch.clamp(x_fake,0,1)*2 -1
         d_fake = discriminator.forward(x_fake)
         if self.discriminator_loss_type == "bce":
             d_loss_fake = losses.compute_bce(d_fake, 0)
