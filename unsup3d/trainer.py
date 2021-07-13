@@ -142,8 +142,8 @@ class Trainer():
         print(f"Optimizing to {self.num_epochs} epochs")
         for epoch in range(start_epoch, self.num_epochs):
             self.current_epoch = epoch
-            if epoch == self.lam_perc_decrease_start_epoch:
-                self.lam_perc /= 2
+            if epoch % self.lam_perc_decrease_start_epoch == 0:
+                self.lam_perc *= 0.80
             metrics = self.run_epoch(self.train_loader, epoch)
             self.metrics_trace.append("train", metrics)
 
