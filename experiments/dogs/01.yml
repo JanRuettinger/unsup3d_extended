@@ -5,7 +5,7 @@ num_epochs: 120
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_05_perc_loss
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_6/dogs_32_2_perc_loss
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_7/dogs_32_2_perc_loss
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -30,7 +30,7 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 2 # 1
-lam_perc_decrease_start_epoch: 2
+lam_perc_decrease_start_epoch: 100
 discriminator_loss_start_epoch: 100
 lam_flip: 0.6
 use_lpips: true
