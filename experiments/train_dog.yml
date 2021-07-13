@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 10
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_8/dogs_with_disc
+checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_05_perc_loss
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -19,6 +19,7 @@ depthmap_size: 32
 load_gt_depth: false
 train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
 # train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/dogs_cropped
+
 # generator
 model_name: unsup3d_celeba
 min_depth: 0.7
@@ -40,7 +41,7 @@ use_resnet_depthmapnet: true
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0.01
+discriminator_loss: 0
 discriminator_loss_type: bce
 
 ## renderer

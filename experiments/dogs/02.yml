@@ -4,8 +4,8 @@ run_train: true
 num_epochs: 120
 batch_size: 25
 # checkpoint_dir: results/cat
-# checkpoint_dir: /scratch/local/ssd/janhr/results/debug/dogs
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_5/dogs_plain_32_1_perc_loss
+checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_01_perc_loss
+# checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_5/dogs_plain_32_05_perc_loss
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -19,8 +19,8 @@ depthmap_size: 32
 #crop: 170 # 64 for debug_2 170 for normal
 load_gt_depth: false
 # train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
-# train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
-train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/dogs_cropped
+train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
+# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/dogs_cropped
 
 # generator
 model_name: unsup3d_celeba
@@ -29,9 +29,9 @@ max_depth: 1.3
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 1 # 1
-lam_perc_decrease_start_epoch: 1000
-discriminator_loss_start_epoch: -1
+lam_perc: 0.1 # 1
+lam_perc_decrease_start_epoch: 100
+discriminator_loss_start_epoch: 100
 lam_flip: 0.6
 use_lpips: true
 use_depthmap_prior: true
@@ -42,8 +42,8 @@ use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 
 # discriminator
-lr_discriminator: 0.001
-discriminator_loss: 0
+lr_discriminator: 0.0001
+discriminator_loss: 0.0
 discriminator_loss_type: bce
 
 ## renderer

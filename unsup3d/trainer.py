@@ -32,6 +32,7 @@ class Trainer():
         self.discriminator_loss = cfgs.get('discriminator_loss', 0.1)
         self.use_lpips = cfgs.get('use_lpips', False)
         self.discriminator_loss_start_epoch = cfgs.get('discriminator_loss_start_epoch', False)
+        self.lam_perc_decrease_start_epoch = cfgs.get('lam_perc_decrease_start_epoch', 2)
         self.discriminator_loss_type = cfgs.get('discriminator_loss_type', "bce")
 
         self.metrics_trace = meters.MetricsTrace()
@@ -140,6 +141,8 @@ class Trainer():
         print(f"Optimizing to {self.num_epochs} epochs")
         for epoch in range(start_epoch, self.num_epochs):
             self.current_epoch = epoch
+            if epoch == self.lam_perc_decrease_start_epoch:
+                self.lam_perc /= 2
             metrics = self.run_epoch(self.train_loader, epoch)
             self.metrics_trace.append("train", metrics)
 

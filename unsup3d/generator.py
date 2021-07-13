@@ -28,7 +28,6 @@ class Unsup3d_Generator():
         self.lr = cfgs.get('lr_generator', 1e-4)
         self.load_gt_depth = cfgs.get('load_gt_depth', False)
         self.depthmap_mode = cfgs.get('depth_network', 'resnet')
-        self.lam_perc_decrease_start_epoch = cfgs.get('lam_perc_decrease_start_epoch', 2)
         self.use_lpips = cfgs.get('use_lpips', False)
         self.conf_map_enabled = cfgs.get('conf_map_enabled', True)
         self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
@@ -190,9 +189,9 @@ class Unsup3d_Generator():
         if random_view is not None:
             random_view = random_view.repeat(2,1)
             self.view = torch.cat([
-            random_view[:,:3] *math.pi/180 *self.xyz_rotation_range,
-            random_view[:,3:5] *self.xy_translation_range,
-            random_view[:,5:] *self.z_translation_range], 1)
+            random_view[:,:3] *math.pi/180 *self.xyz_rotation_range/4,
+            random_view[:,3:5] *self.xy_translation_range/4,
+            random_view[:,5:] *self.z_translation_range/4], 1)
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
