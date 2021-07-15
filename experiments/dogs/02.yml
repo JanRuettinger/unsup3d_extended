@@ -5,7 +5,7 @@ num_epochs: 120
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_05_perc_loss
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_8/dogs_32_view_loss_medium
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_8/dogs_32_view_loss_very_very_small
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
@@ -40,7 +40,7 @@ num_faces_per_square: 2 # 2 -> 4 not implemented right now
 use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 depthmap_prior_fac: 1
-view_loss_weight: 10
+view_loss_weight: 0.01
 
 # discriminator
 lr_discriminator: 0.001
