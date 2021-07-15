@@ -39,7 +39,7 @@ num_faces_per_square: 2 # 2 -> 4 not implemented right now
 use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 depthmap_prior_fac: 1
-view_loss_weight: 30
+view_loss_weight: 1
 
 # discriminator
 lr_discriminator: 0.001

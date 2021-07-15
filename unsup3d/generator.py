@@ -190,8 +190,8 @@ class Unsup3d_Generator():
         # mu = torch.zeros((b), requires_grad=False)
         # std = torch.ones((b), requires_grad=False)*2
         # p = torch.distributions.Normal(mu, std)
-        view_norm_batch = torch.norm(self.view, dim=0)
-        self.view_loss = torch.sum(view_norm_batch)
+        view_norm_batch = torch.mean(self.view, dim=0)
+        self.view_loss = torch.norm(view_norm_batch)
         # loss_view = torch.distributions.kl_divergence(p, q).mean()
         
         if random_view is not None:
