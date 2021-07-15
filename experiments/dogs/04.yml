@@ -5,12 +5,12 @@ num_epochs: 120
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_05_perc_loss
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_7/dogs_32_2_perc_loss_step_by_step_decreasing_perc_loss_resnet_albedo_no_lpips_gan
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_8/dogs_32_depth_prior_fac_05
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
-log_freq: 100
+log_freq: 10
 
 ## dataloader
 num_workers: 4
@@ -33,17 +33,18 @@ lam_perc: 2 # 1
 lam_perc_decrease_start_epoch: 2
 discriminator_loss_start_epoch: 4
 lam_flip: 0.6
-use_lpips: false
+use_lpips: true
 use_depthmap_prior: true
 conf_map_enabled: true
 lr_generator: 0.0001
 num_faces_per_square: 2 # 2 -> 4 not implemented right now 
 use_resnet_albedonet: true
 use_resnet_depthmapnet: true
+depthmap_prior_fac: 0.5
 
 # discriminator
-lr_discriminator: 0.001
-discriminator_loss: 0.1
+lr_discriminator: 0.0001
+discriminator_loss: 0
 discriminator_loss_type: bce
 
 ## renderer
@@ -53,5 +54,5 @@ tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
 faces_per_pixel: 6
-znear_render: 0.6
-zfar_render: 1.4
+znear_render: -10
+zfar_render: 10

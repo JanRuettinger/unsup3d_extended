@@ -34,6 +34,7 @@ class Unsup3d_Generator():
         self.renderer = Renderer(cfgs)
         self.alebdo_mode = cfgs.get('use_resnet_albedonet', False)
         self.depthmap_mode = cfgs.get('use_resnet_depthmapnet', False)
+        self.depthmap_prior_fac = cfgs.get('depthmap_prior_fac', 1)
 
         ## networks and optimizers
         if self.depthmap_size == 64:
@@ -138,7 +139,7 @@ class Unsup3d_Generator():
             depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy')).to(self.device)
             depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
             depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[self.depthmap_size,self.depthmap_size], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + 2*depthmap_prior
+            self.canon_depth = self.canon_depth + self.depthmap_prior_fac*depthmap_prior
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 

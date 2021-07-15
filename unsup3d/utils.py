@@ -181,15 +181,16 @@ def save_scores(out_path, scores, header=''):
 
 def calculate_views_for_360_video(original_view, num_frames=8):
     views = []
+    counter = -num_frames/2
     for i in range(num_frames):
-        rotation_around_y = -i*2*np.pi/num_frames
+        rotation_around_y = -(counter+i)*2*(np.pi/5)/num_frames
         new_view = original_view.detach().clone()
         new_view[:,0] = 0 # rotation around x axis
         new_view[:,1] = rotation_around_y # rotation around y axis
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0 #x
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.2 #z 0.6 for dogs
+        new_view[:,5] = 0.8 #z 0.6 for dogs
         views.append(new_view)
     
     return torch.stack(views)
@@ -202,16 +203,16 @@ def get_side_view(original_view, zoom_mode=0):
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0 #x 
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.4 #z zoom out a little bit
+        new_view[:,5] = 0 #z zoom out a little bit
         return new_view
     if zoom_mode == 1:
         new_view = original_view.detach().clone()
         new_view[:,0] = 0 # rotation around x axis
         new_view[:,1] = -np.pi/2 # rotation around y axis
         new_view[:,2] = 0# rotation around z axis
-        new_view[:,3] = 0 #x 
+        new_view[:,3] = 0.1 #x 
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0 #z zoom out a little bit
+        new_view[:,5] = 1.2 #z zoom out a little bit
         return new_view
 
 
