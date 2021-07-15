@@ -35,6 +35,7 @@ class Trainer():
         self.discriminator_loss_start_epoch = cfgs.get('discriminator_loss_start_epoch', False)
         self.lam_perc_decrease_start_epoch = cfgs.get('lam_perc_decrease_start_epoch', 2)
         self.discriminator_loss_type = cfgs.get('discriminator_loss_type', "bce")
+        self.view_loss_weight = cfgs.get('view_loss_weight', 1)
 
         self.metrics_trace = meters.MetricsTrace()
         self.make_metrics = lambda m=None: meters.StandardMetrics(m)
@@ -205,7 +206,9 @@ class Trainer():
         loss_l1_im = metrics["loss_l1_im"]
         loss_perc_im = metrics["loss_perc_im"]
         gloss = metrics["gloss"]
+        loss_view = metrics["loss_view"]
         logger.add_scalar('Loss_Gen/loss_total', loss_total, total_iter)
+        logger.add_scalar('Loss_Gen/loss_view', loss_view, total_iter)
         logger.add_scalar('Loss_Gen/loss_l1_im', loss_l1_im, total_iter)
         logger.add_scalar('Loss_Gen/loss_perc_im', loss_perc_im, total_iter)
         logger.add_scalar('Loss_Gen/loss_generator', gloss, total_iter)
@@ -229,7 +232,7 @@ class Trainer():
         generator.set_train()
         discriminator.set_train() # train/eval mode -> no difference since dis doesn't use BN
 
-        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input)
+        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
         # print recon_im and mask
         # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
@@ -282,7 +285,7 @@ class Trainer():
                 loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
                 loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b])
 
-        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
+        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
@@ -297,7 +300,7 @@ class Trainer():
         # if self.generator_test is not None:
         #     update_average(self.generator_test, generator, beta=0.999)
 
-        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item(), "loss_view": view_loss.item() }
         return metrics
     
     def validation_step_generator(self,input, epoch):
@@ -310,7 +313,7 @@ class Trainer():
         discriminator.toggle_grad(False) 
         generator.set_eval()
         discriminator.set_eval()
-        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl = generator.forward(input)
+        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
         fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
         # fake_recon_im_disc = fake_recon_im
@@ -339,7 +342,7 @@ class Trainer():
                 loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
                 loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b])
 
-        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip)
+        loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
 
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
@@ -347,7 +350,7 @@ class Trainer():
             gloss *= 0
             loss_total = loss_conventional
 
-        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item() }
+        metrics = {'loss': loss_total.item(), "loss_l1_im": loss_l1_im.item(), "loss_l1_flip": loss_l1_im_flip.item(), "loss_perc_im": loss_perc_im.item(),"loss_perc_im_flip": loss_perc_im_flip.item(), "gloss": gloss.item(), "loss_view": view_loss.item() }
         return metrics
 
     def train_step_discriminator(self,input):
@@ -366,7 +369,7 @@ class Trainer():
         random_view[:,:2] = 0
         random_view[:,2] -= 0.5
         with torch.no_grad():
-            x_fake, recon_im_mask, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
+            x_fake, recon_im_mask, _, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
 
         # print recon_im and mask
         # detached_x_fake = x_fake.detach().permute(0,2,3,1)[0].cpu().numpy()*255
@@ -416,7 +419,7 @@ class Trainer():
 
         input_im = input.to(self.device)
 
-        x_fake, recon_im_mask,_, _ = generator.forward(input)
+        x_fake, recon_im_mask,_, _, _ = generator.forward(input)
         x_fake = torch.clamp(x_fake,0,1)*2 -1
         d_fake = discriminator.forward(x_fake)
         if self.discriminator_loss_type == "bce":
@@ -454,7 +457,7 @@ class Trainer():
 
         input_im = input.to(self.device)
 
-        x_fake, recon_im_mask,_, _ = generator.forward(input)
+        x_fake, recon_im_mask,_, _,_ = generator.forward(input)
         x_fake = torch.clamp(x_fake,0,1)*2 -1 
         discriminator.forward(x_fake)
         discriminator.visualize(logger, total_iter, fake=True)
@@ -469,13 +472,13 @@ class Trainer():
 
     def save_example_predictions(self, input, iter):
         b  = input.shape[0] # batch_siz
-        recon_im, recon_im_mask,_, _ = self.generator.forward(input)
+        recon_im, recon_im_mask,_, _, _ = self.generator.forward(input)
         img_dir = pathlib.Path(self.checkpoint_dir) / 'imgs'
         img_dir.mkdir(parents=True, exist_ok=True) 
 
         # print recon_im and mask
-        detached_mask = recon_im.detach().permute(0,2,3,1).cpu().numpy()*255
-        for key,value in enumerate(detached_mask):
+        detached_im = recon_im.detach().permute(0,2,3,1).cpu().numpy()*255
+        for key,value in enumerate(detached_im):
             img = Image.fromarray(np.uint8(value)).convert('RGB')
             img_path = img_dir / f'recon_im_{iter}_{key}.png'
             img.save(img_path)

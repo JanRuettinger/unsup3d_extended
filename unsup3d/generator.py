@@ -186,6 +186,13 @@ class Unsup3d_Generator():
             self.view[:,:3] *math.pi/180 *self.xyz_rotation_range,
             self.view[:,3:5] *self.xy_translation_range,
             self.view[:,5:] *self.z_translation_range], 1)
+
+        # mu = torch.zeros((b), requires_grad=False)
+        # std = torch.ones((b), requires_grad=False)*2
+        # p = torch.distributions.Normal(mu, std)
+        view_norm_batch = torch.norm(self.view, dim=0)
+        self.view_loss = torch.sum(view_norm_batch)
+        # loss_view = torch.distributions.kl_divergence(p, q).mean()
         
         if random_view is not None:
             random_view = random_view.repeat(2,1)
@@ -207,59 +214,8 @@ class Unsup3d_Generator():
         # recon_im_mask_both = self.recon_im_mask[:b] * self.recon_im_mask[b:]
         # detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
 
-        return self.recon_im, self.recon_im_mask, self.conf_sigma_l1, self.conf_sigma_percl
+        return self.recon_im, self.recon_im_mask, self.conf_sigma_l1, self.conf_sigma_percl, self.view_loss
 
-        # if self.conf_map_enabled:
-        #     self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
-        #     self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
-    
-        #     if self.use_lpips:
-        #         self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
-        #         self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
-        #     else:
-        #         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
-        #         self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
-        # else:
-        #     self.loss_l1_im = self.photometric_loss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
-        #     self.loss_l1_im_flip = self.photometric_loss(self.recon_im[b:], self.input_im, mask=detached_mask[b:])
-
-        #     if self.use_lpips:
-        #         self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
-        #         self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
-        #     else:
-        #         self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=detached_mask[:b])
-        #         self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=detached_mask[:b])
-
-        
-        # self.lam_perc = 1 if self.trainer.current_epoch > self.lam_perc_decrease_start_epoch else self.lam_perc 
-        # self.loss_total = self.loss_l1_im + self.lam_flip*self.loss_l1_im_flip + self.lam_perc*(self.loss_perc_im + self.lam_flip*self.loss_perc_im_flip)
-
-
-        # metrics = {'loss': self.loss_total}
-
-        ## compute accuracy if gt depth is available
-        # if self.load_gt_depth:
-        #     self.depth_gt = depth_gt[:,0,:,:].to(self.input_im.device)
-        #     self.depth_gt = (1-self.depth_gt)*2-1
-        #     self.depth_gt = self.depth_rescaler(self.depth_gt)
-        #     self.normal_gt = self.renderer.get_normal_from_depth(self.depth_gt)
-
-        #     # mask out background
-        #     mask_gt = (self.depth_gt<self.depth_gt.max()).float()
-        #     mask_gt = (nn.functional.avg_pool2d(mask_gt.unsqueeze(1), 3, stride=1, padding=1).squeeze(1) > 0.99).float()  # erode by 1 pixel
-        #     mask_pred = (nn.functional.avg_pool2d(self.recon_im_mask[:b].unsqueeze(1), 3, stride=1, padding=1).squeeze(1) > 0.99).float()  # erode by 1 pixel
-        #     mask = mask_gt * mask_pred
-        #     self.acc_mae_masked = ((self.recon_depth[:b] - self.depth_gt[:b]).abs() *mask).view(b,-1).sum(1) / mask.view(b,-1).sum(1)
-        #     self.acc_mse_masked = (((self.recon_depth[:b] - self.depth_gt[:b])**2) *mask).view(b,-1).sum(1) / mask.view(b,-1).sum(1)
-        #     self.sie_map_masked = utils.compute_sc_inv_err(self.recon_depth[:b].log(), self.depth_gt[:b].log(), mask=mask)
-        #     self.acc_sie_masked = (self.sie_map_masked.view(b,-1).sum(1) / mask.view(b,-1).sum(1))**0.5
-        #     self.norm_err_map_masked = utils.compute_angular_distance(self.recon_normal[:b], self.normal_gt[:b], mask=mask)
-        #     self.acc_normal_masked = self.norm_err_map_masked.view(b,-1).sum(1) / mask.view(b,-1).sum(1)
-
-        #     metrics['SIE_masked'] = self.acc_sie_masked.mean()
-        #     metrics['NorErr_masked'] = self.acc_normal_masked.mean()
-
-        # return metrics
 
     def visualize(self, logger, total_iter, max_bs=25):
         b, c, h, w = self.input_im.shape

@@ -54,5 +54,5 @@ tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
 faces_per_pixel: 6
-znear_render: -10
-zfar_render: 10
+znear_render: 0.4
+zfar_render: 1.8
