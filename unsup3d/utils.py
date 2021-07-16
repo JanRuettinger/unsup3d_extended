@@ -190,7 +190,7 @@ def calculate_views_for_360_video(original_view, num_frames=8):
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0 #x
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.3 #z 0.6 for dogs
+        new_view[:,5] = 0.2 #z 0.6 for dogs
         views.append(new_view)
     
     return torch.stack(views)
@@ -212,7 +212,7 @@ def get_side_view(original_view, zoom_mode=0):
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0.05 #x 
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.3 #z zoom out a little bit
+        new_view[:,5] = 0.2 #z zoom out a little bit
         return new_view
 
 
