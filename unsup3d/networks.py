@@ -160,6 +160,109 @@ class DepthMapResNet(nn.Module):
         return self.network(input)
 
 
+
+class DepthMapResNet128(nn.Module):
+    def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
+        super(DepthMapResNet128, self).__init__()
+        network = [
+            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 128 -> 64x64
+            nn.GroupNorm(16, nf),
+            # nn.InstanceNorm2d(nf),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 32x32
+            nn.GroupNorm(16*2, nf*2),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*2, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            nn.GroupNorm(16*4, nf*4),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 8x8
+            nn.GroupNorm(16*8, nf*8),
+            # nn.InstanceNorm2d(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # BasicBlock(nf*4, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            BasicBlock(nf*8, nf*8, norm_layer=nn.InstanceNorm2d),
+            # BasicBlock(nf*8, nf*4, norm_layer=nn.InstanceNorm2d),
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 8x8 -> 16x16
+            nn.Conv2d(nf*8, nf*6, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*6, nf*6),
+            nn.ReLU(inplace=True),
+        ]
+        self.network = nn.Sequential(*network)
+
+        bridge_16_32 = [
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Conv2d(nf*6, nf*4, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*4, nf*4),
+            nn.ReLU(inplace=True),
+        ]
+        self.bridge_16_32 = nn.Sequential(*bridge_16_32)
+
+        bridge_32_64 = [
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*2, nf*2),
+            nn.ReLU(inplace=True),
+        ]
+        self.bridge_32_64 = nn.Sequential(*bridge_32_64)
+
+        bridge_64_128 = [
+            nn.Upsample(scale_factor=2, mode='nearest'),  # 16x16 -> 32x32
+            nn.Conv2d(nf*2, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16, nf),
+            nn.ReLU(inplace=True),
+        ]
+        self.bridge_64_128 = nn.Sequential(*bridge_64_128)
+
+        out_net16 = [
+            nn.Conv2d(nf*6, nf*3, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*3, nf*3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf*3, cout, kernel_size=5, stride=1, padding=2, bias=False),
+        ]
+        self.out_net16 = nn.Sequential(*out_net16)
+
+        out_net32 = [
+            nn.Conv2d(nf*4, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*2, nf*2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf*2, cout, kernel_size=5, stride=1, padding=2, bias=False),
+        ]
+        self.out_net32 = nn.Sequential(*out_net32)
+
+        out_net64 = [
+            nn.Conv2d(nf*2, nf*2, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16*2, nf*2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf*2, cout, kernel_size=5, stride=1, padding=2, bias=False),
+        ]
+        self.out_net64 = nn.Sequential(*out_net64)
+
+        out_net128 = [
+            nn.Conv2d(nf, nf, kernel_size=5, stride=1, padding=2, bias=False),
+            nn.GroupNorm(16, nf),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(nf, cout, kernel_size=5, stride=1, padding=2, bias=False),
+        ]
+        self.out_net128 = nn.Sequential(*out_net128)
+
+    def forward(self, input):
+        out_base = self.network(input)
+        bridge_output_32 = self.bridge_16_32(out_base)
+        bridge_output_64 = self.bridge_32_64(bridge_output_32)
+        bridge_output_128 = self.bridge_64_128(bridge_output_64)
+        out_16 = self.out_net16(out_base)
+        out_32 = self.out_net32(bridge_output_32)
+        out_64 = self.out_net64(bridge_output_64)
+        out_128 = self.out_net128(bridge_output_128)
+        return out_16, out_32, out_64, out_128
+
 class DepthMapResNet64(nn.Module):
     def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
         super(DepthMapResNet64, self).__init__()

@@ -197,7 +197,7 @@ class Trainer():
                     self.log_loss_discriminator(self.logger,m_dis,total_iter)
                     self.generator.visualize(self.logger, total_iter=total_iter, max_bs=25)
                     self.visualization_helper_discriminator(self.viz_input, self.logger, total_iter=total_iter, max_bs=25)
-                    # self.discriminator.visualize(self.logger, total_iter=total_iter, max_bs=25)
+                    self.discriminator.visualize(self.logger, total_iter=total_iter, max_bs=25)
 
         return metrics
 
@@ -232,60 +232,37 @@ class Trainer():
         generator.set_train()
         discriminator.set_train() # train/eval mode -> no difference since dis doesn't use BN
 
-        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
+        # fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input)
 
-        # print recon_im and mask
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('recon.png')
+        loss_l1_im_16 = losses.photometric_loss(recon_im_16[:b], input_im, mask=recon_im_mask_16[:b])
+        loss_l1_im_flip_16 = losses.photometric_loss(recon_im_16[b:], input_im, mask=recon_im_mask_16[b:])
+        loss_perc_im_16 = torch.mean(self.PerceptualLoss.forward(recon_im_16[:b], input_im))
+        loss_perc_im_flip_16 = torch.mean(self.PerceptualLoss.forward(recon_im_16[b:],input_im))
 
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('recon_flipped.png')
+        loss_l1_im_32 = losses.photometric_loss(recon_im_32[:b], input_im, mask=recon_im_mask_32[:b])
+        loss_l1_im_flip_32 = losses.photometric_loss(recon_im_32[b:], input_im, mask=recon_im_mask_32[b:])
+        loss_perc_im_32 = torch.mean(self.PerceptualLoss.forward(recon_im_32[:b], input_im))
+        loss_perc_im_flip_32 = torch.mean(self.PerceptualLoss.forward(recon_im_32[b:],input_im))
 
-        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
-        # img.save('im_mask.png')
+        loss_l1_im_64 = losses.photometric_loss(recon_im_64[:b], input_im, mask=recon_im_mask_64[:b])
+        loss_l1_im_flip_64 = losses.photometric_loss(recon_im_64[b:], input_im, mask=recon_im_mask_64[b:])
+        loss_perc_im_64 = torch.mean(self.PerceptualLoss.forward(recon_im_64[:b], input_im))
+        loss_perc_im_flip_64 = torch.mean(self.PerceptualLoss.forward(recon_im_64[b:],input_im))
 
-        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
-        # img.save('im_mask_flipped.png')
+        loss_l1_im_128 = losses.photometric_loss(recon_im_128[:b], input_im, mask=recon_im_mask_128[:b])
+        loss_l1_im_flip_128 = losses.photometric_loss(recon_im_128[b:], input_im, mask=recon_im_mask_128[b:])
+        loss_perc_im_128 = torch.mean(self.PerceptualLoss.forward(recon_im_128[:b], input_im))
+        loss_perc_im_flip_128 = torch.mean(self.PerceptualLoss.forward(recon_im_128[b:],input_im))
 
-        # masked_input_im = input_im*recon_im_mask[:b] + (1-recon_im_mask[:b])
-        # detached_input_im = masked_input_im.permute(0,2,3,1)
-        # detached_input_im = detached_input_im.detach()[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_input_im)).convert('RGB')
-        # img.save('masked_img.png')
-
-        fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
-        # fake_recon_im_disc = fake_recon_im
-        d_fake = discriminator.forward(fake_recon_im_disc)
-        if self.discriminator_loss_type == "bce":
-            gloss = losses.compute_bce(d_fake, 1)
-        else:
-            gloss = losses.compute_lse(d_fake, 1)
-
-        # input_im wrong
-
-        if self.conf_map_enabled:
-            loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
-            loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
-        else:
-            loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
-            loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:])
-
-        if self.use_lpips:
-            loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
-        else:
-            if self.conf_map_enabled:
-                loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,:1])
-                loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,1:])
-            else:
-                loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
-                loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b])
+        loss_l1_im = loss_l1_im_16 + loss_l1_im_32 + loss_l1_im_64 + loss_l1_im_128
+        loss_l1_im_flip = loss_l1_im_flip_16 + loss_l1_im_flip_32 + loss_l1_im_flip_64 + loss_l1_im_flip_128
+        loss_perc_im = loss_perc_im_16 + loss_perc_im_32 + loss_perc_im_64 + loss_perc_im_128
+        loss_perc_im_flip = loss_perc_im_flip_16 + loss_perc_im_flip_32 + loss_perc_im_flip_64 + loss_perc_im_flip_128
 
         loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
+
+        gloss = torch.tensor(0)
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
@@ -313,37 +290,37 @@ class Trainer():
         discriminator.toggle_grad(False) 
         generator.set_eval()
         discriminator.set_eval()
-        fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
-        fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
-        # fake_recon_im_disc = fake_recon_im
-        d_fake = discriminator.forward(fake_recon_im_disc)
-        if self.discriminator_loss_type == "bce":
-            gloss = losses.compute_bce(d_fake, 1)
-        else:
-            gloss = losses.compute_lse(d_fake, 1)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input)
 
-        # input_im wrong
-        if self.conf_map_enabled:
-            loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
-            loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:], conf_sigma=conf_sigma_l1[:,1:])
-        else:
-            loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
-            loss_l1_im_flip = losses.photometric_loss(fake_recon_im[b:], input_im, mask=recon_im_mask[b:])
+        loss_l1_im_16 = losses.photometric_loss(recon_im_16[:b], input_im, mask=recon_im_mask_16[:b])
+        loss_l1_im_flip_16 = losses.photometric_loss(recon_im_16[b:], input_im, mask=recon_im_mask_16[b:])
+        loss_perc_im_16 = torch.mean(self.PerceptualLoss.forward(recon_im_16[:b], input_im))
+        loss_perc_im_flip_16 = torch.mean(self.PerceptualLoss.forward(recon_im_16[b:],input_im))
 
-        if self.use_lpips:
-            loss_perc_im = torch.mean(self.PerceptualLoss.forward(fake_recon_im[:b], input_im))
-            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(fake_recon_im[b:],input_im))
-        else:
-            if self.conf_map_enabled:
-                loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,:1])
-                loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b], conf_sigma=conf_sigma_percl[:,1:])
-            else:
-                loss_perc_im = self.PerceptualLoss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b])
-                loss_perc_im_flip = self.PerceptualLoss(fake_recon_im[b:],input_im ,mask=recon_im_mask[:b])
+        loss_l1_im_32 = losses.photometric_loss(recon_im_32[:b], input_im, mask=recon_im_mask_32[:b])
+        loss_l1_im_flip_32 = losses.photometric_loss(recon_im_32[b:], input_im, mask=recon_im_mask_32[b:])
+        loss_perc_im_32 = torch.mean(self.PerceptualLoss.forward(recon_im_32[:b], input_im))
+        loss_perc_im_flip_32 = torch.mean(self.PerceptualLoss.forward(recon_im_32[b:],input_im))
+
+        loss_l1_im_64 = losses.photometric_loss(recon_im_64[:b], input_im, mask=recon_im_mask_64[:b])
+        loss_l1_im_flip_64 = losses.photometric_loss(recon_im_64[b:], input_im, mask=recon_im_mask_64[b:])
+        loss_perc_im_64 = torch.mean(self.PerceptualLoss.forward(recon_im_64[:b], input_im))
+        loss_perc_im_flip_64 = torch.mean(self.PerceptualLoss.forward(recon_im_64[b:],input_im))
+
+        loss_l1_im_128 = losses.photometric_loss(recon_im_128[:b], input_im, mask=recon_im_mask_128[:b])
+        loss_l1_im_flip_128 = losses.photometric_loss(recon_im_128[b:], input_im, mask=recon_im_mask_128[b:])
+        loss_perc_im_128 = torch.mean(self.PerceptualLoss.forward(recon_im_128[:b], input_im))
+        loss_perc_im_flip_128 = torch.mean(self.PerceptualLoss.forward(recon_im_128[b:],input_im))
+
+        loss_l1_im = loss_l1_im_16 + loss_l1_im_32 + loss_l1_im_64 + loss_l1_im_128
+        loss_l1_im_flip = loss_l1_im_flip_16 + loss_l1_im_flip_32 + loss_l1_im_flip_64 + loss_l1_im_flip_128
+        loss_perc_im = loss_perc_im_16 + loss_perc_im_32 + loss_perc_im_64 + loss_perc_im_128
+        loss_perc_im_flip = loss_perc_im_flip_16 + loss_perc_im_flip_32 + loss_perc_im_flip_64 + loss_perc_im_flip_128
 
         loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
 
+        gloss = torch.tensor(0)
         if epoch > self.discriminator_loss_start_epoch:
             loss_total = loss_conventional + self.discriminator_loss*gloss
         else:
@@ -369,14 +346,15 @@ class Trainer():
         random_view[:,:2] = 0
         random_view[:,2] -= 0.5
         with torch.no_grad():
-            x_fake, recon_im_mask, _, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
+            # x_fake, recon_im_mask, _, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
+            recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input, random_view)
 
         # print recon_im and mask
         # detached_x_fake = x_fake.detach().permute(0,2,3,1)[0].cpu().numpy()*255
         # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
         # img.save('random_view_fakes.png')
 
-        x_fake = torch.clamp(x_fake,0,1)*2 -1
+        x_fake = torch.clamp(recon_im_128,0,1)*2 -1
         # x_fake = x_fake.detach() 
         d_fake = discriminator.forward(x_fake)
         if self.discriminator_loss_type == "bce":
@@ -385,7 +363,7 @@ class Trainer():
             d_loss_fake = losses.compute_lse(d_fake, 0)
 
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
-        recon_im_mask = recon_im_mask.detach()
+        recon_im_mask = recon_im_mask_128.detach()
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         masked_input_im = torch.clamp(masked_input_im, 0, 1) *2 -1
         d_real = discriminator.forward(masked_input_im)
@@ -419,8 +397,9 @@ class Trainer():
 
         input_im = input.to(self.device)
 
-        x_fake, recon_im_mask,_, _, _ = generator.forward(input)
-        x_fake = torch.clamp(x_fake,0,1)*2 -1
+        # x_fake, recon_im_mask,_, _, _ = generator.forward(input)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input)
+        x_fake = torch.clamp(recon_im_128,0,1)*2 -1
         d_fake = discriminator.forward(x_fake)
         if self.discriminator_loss_type == "bce":
             d_loss_fake = losses.compute_bce(d_fake, 0)
@@ -429,7 +408,7 @@ class Trainer():
 
         # x_real.requires_grad_()
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
-        masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
+        masked_input_im = input_with_flipped*recon_im_mask_128 + (1-recon_im_mask_128)
         masked_input_im = torch.clamp(masked_input_im, 0, 1) *2 -1
         d_real = discriminator.forward(masked_input_im)
         if self.discriminator_loss_type == "bce":
@@ -457,14 +436,15 @@ class Trainer():
 
         input_im = input.to(self.device)
 
-        x_fake, recon_im_mask,_, _,_ = generator.forward(input)
-        x_fake = torch.clamp(x_fake,0,1)*2 -1 
+        # x_fake, recon_im_mask,_, _,_ = generator.forward(input)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input, random_view)
+        x_fake = torch.clamp(recon_im_128,0,1)*2 -1 
         discriminator.forward(x_fake)
         discriminator.visualize(logger, total_iter, fake=True)
 
         # x_real.requires_grad_()
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
-        masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
+        masked_input_im = input_with_flipped*recon_im_mask_128 + (1-recon_im_mask_128)
         masked_input_im = torch.clamp(masked_input_im,0,1)*2 -1 
         discriminator.forward(masked_input_im)
         discriminator.visualize(logger, total_iter, fake=False)
@@ -472,12 +452,13 @@ class Trainer():
 
     def save_example_predictions(self, input, iter):
         b  = input.shape[0] # batch_siz
-        recon_im, recon_im_mask,_, _, _ = self.generator.forward(input)
+        # recon_im, recon_im_mask,_, _, _ = self.generator.forward(input)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input, random_view)
         img_dir = pathlib.Path(self.checkpoint_dir) / 'imgs'
         img_dir.mkdir(parents=True, exist_ok=True) 
 
         # print recon_im and mask
-        detached_im = recon_im.detach().permute(0,2,3,1).cpu().numpy()*255
+        detached_im = recon_im_128.detach().permute(0,2,3,1).cpu().numpy()*255
         for key,value in enumerate(detached_im):
             img = Image.fromarray(np.uint8(value)).convert('RGB')
             img_path = img_dir / f'recon_im_{iter}_{key}.png'
