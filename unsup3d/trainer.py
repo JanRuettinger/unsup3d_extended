@@ -197,7 +197,7 @@ class Trainer():
                     self.log_loss_discriminator(self.logger,m_dis,total_iter)
                     self.generator.visualize(self.logger, total_iter=total_iter, max_bs=25)
                     self.visualization_helper_discriminator(self.viz_input, self.logger, total_iter=total_iter, max_bs=25)
-                    self.discriminator.visualize(self.logger, total_iter=total_iter, max_bs=25)
+                    self.discriminator.visualize(self.logger, total_iter=total_iter, fake=False)
 
         return metrics
 
@@ -227,7 +227,7 @@ class Trainer():
         input_im = input.to(self.device)
         b  = input_im.shape[0] # batch_size
 
-        generator.toggle_grad(True)
+        generator.toggle_grad(False)
         discriminator.toggle_grad(False)
         generator.set_train()
         discriminator.set_train() # train/eval mode -> no difference since dis doesn't use BN
@@ -437,7 +437,7 @@ class Trainer():
         input_im = input.to(self.device)
 
         # x_fake, recon_im_mask,_, _,_ = generator.forward(input)
-        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input, random_view)
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input)
         x_fake = torch.clamp(recon_im_128,0,1)*2 -1 
         discriminator.forward(x_fake)
         discriminator.visualize(logger, total_iter, fake=True)
@@ -453,7 +453,10 @@ class Trainer():
     def save_example_predictions(self, input, iter):
         b  = input.shape[0] # batch_siz
         # recon_im, recon_im_mask,_, _, _ = self.generator.forward(input)
-        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input, random_view)
+        generator = self.generator
+        generator.toggle_grad(False)
+        generator.set_eval()
+        recon_im_16, recon_im_mask_16, recon_im_32, recon_im_mask_32, recon_im_64, recon_im_mask_64, recon_im_128, recon_im_mask_128, view_loss = generator.forward(input)
         img_dir = pathlib.Path(self.checkpoint_dir) / 'imgs'
         img_dir.mkdir(parents=True, exist_ok=True) 
 

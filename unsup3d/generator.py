@@ -194,18 +194,18 @@ class Unsup3d_Generator():
         self.canon_depth_64 = clamp_border(self.canon_depth_64)
         self.canon_depth_128 = clamp_border(self.canon_depth_128)
 
-        # canon_depth = self.canon_depth.detach()[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(canon_depth))
-        # img.save('canon_depth.png')
+        canon_depth = self.canon_depth_32.detach()[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(canon_depth))
+        img.save('canon_depth.png')
 
 
         ## predict canonical albedo
         self.canon_albedo = self.netA(self.input_im)  # Bx3xHxW
         self.canon_albedo = torch.cat([self.canon_albedo, self.canon_albedo.flip(3)], 0)  # flip
 
-        # canon_albedo = self.canon_albedo.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(canon_albedo)).convert('RGB')
-        # img.save('canon_albedo.png')
+        canon_albedo = self.canon_albedo.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(canon_albedo)).convert('RGB')
+        img.save('canon_albedo.png')
 
         ## predict confidence map
         self.conf_sigma_l1, self.conf_sigma_percl = self.netC(self.input_im)  # Bx2xHxW

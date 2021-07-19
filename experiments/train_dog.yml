@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/gans_disc/pyramide_1
+checkpoint_dir: /scratch/local/ssd/janhr/results/pyramid/no_training
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -32,7 +32,7 @@ lam_perc_decrease_start_epoch: 1
 discriminator_loss_start_epoch: 100
 lam_flip: 0.6
 use_lpips: true
-use_depthmap_prior: true
+use_depthmap_prior: false
 conf_map_enabled: false
 lr_generator: 0.0001
 num_faces_per_square: 2 # 2 -> 4 not implemented right now 
