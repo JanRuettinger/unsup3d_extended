@@ -5,7 +5,7 @@ num_epochs: 120
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_05_perc_loss
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_8/dogs_32_depth_88_12
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_9/dogs_32_depth_88_12
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
