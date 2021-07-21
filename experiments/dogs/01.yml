@@ -30,8 +30,8 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 2 # 1
-lam_perc_decrease_start_epoch: 3
-discriminator_loss_start_epoch: 100
+lam_perc_decrease_start_epoch: 8
+discriminator_loss_start_epoch: 200
 lam_flip: 0.6
 use_lpips: true
 use_depthmap_prior: true

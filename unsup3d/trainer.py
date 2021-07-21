@@ -230,7 +230,7 @@ class Trainer():
         generator.toggle_grad(True)
         discriminator.toggle_grad(False)
         generator.set_train()
-        discriminator.set_train() # train/eval mode -> no difference since dis doesn't use BN
+        discriminator.set_eval() # train/eval mode -> no difference since dis doesn't use BN
 
         fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
@@ -358,9 +358,8 @@ class Trainer():
         discriminator = self.discriminator
         generator.toggle_grad(False)
         discriminator.toggle_grad(True)
-        generator.set_train()
+        generator.set_eval()
         discriminator.set_train()
-        d_full_loss = 0.
         b = input.shape[0]
 
         input_im = input.to(self.device)
@@ -384,6 +383,10 @@ class Trainer():
         else:
             d_loss_fake = losses.compute_lse(d_fake, 0)
 
+        detached_x_fake = (x_fake/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        img.save('fake_disc_train.png')
+
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         recon_im_mask = recon_im_mask.detach()
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
@@ -394,11 +397,15 @@ class Trainer():
         else:
             d_loss_real = losses.compute_lse(d_real, 1)
 
+        detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
+        img.save('real_disc_train.png')
+
         # input_im.requires_grad_() # QUESTION: Why required true on input tensor?
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
         # d_full_loss += reg
 
-        d_full_loss += d_loss_fake + d_loss_real
+        d_full_loss = d_loss_fake + d_loss_real
 
         discriminator.reset_optimizer()
         d_full_loss.backward()
@@ -427,7 +434,11 @@ class Trainer():
         else:
             d_loss_fake = losses.compute_lse(d_fake, 0)
 
-        # x_real.requires_grad_()
+        detached_x_fake = (x_fake/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        img.save('fake_disc_val.png')
+
+        # input_im.requires_grad_(False)
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         masked_input_im = input_with_flipped*recon_im_mask + (1-recon_im_mask)
         masked_input_im = torch.clamp(masked_input_im, 0, 1) *2 -1
@@ -436,6 +447,10 @@ class Trainer():
             d_loss_real = losses.compute_bce(d_real, 1)
         else:
             d_loss_real = losses.compute_lse(d_real, 1)
+
+        detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
+        img.save('real_disc_val.png')
 
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
         # loss_d_full += reg
