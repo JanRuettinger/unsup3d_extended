@@ -176,7 +176,7 @@ class Trainer():
 
         for iter, input in enumerate(loader):
             if is_train:
-                m_gen = self.train_step_generator(input, epoch)
+                m_gen = self.train_step_generator(input, epoch, iter)
                 m_dis = self.train_step_discriminator(input)
             if is_validation:
                 m_gen = self.validation_step_generator(input, epoch)
@@ -221,7 +221,7 @@ class Trainer():
         logger.add_scalar('Loss_Dis/d_loss_real', d_loss_real, total_iter)
         logger.add_scalar('Loss_Dis/d_loss_fake', d_loss_fake, total_iter)
 
-    def train_step_generator(self,input, epoch):
+    def train_step_generator(self,input, epoch, iter):
         generator = self.generator
         discriminator = self.discriminator
         input_im = input.to(self.device)
@@ -235,9 +235,13 @@ class Trainer():
         fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
         # print recon_im and mask
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('recon.png')
+        detached_x_fake = input_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        img.save(f"train_input_{iter}.png")
+
+        detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        img.save(f"train_recon{iter}.png")
 
         # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
         # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')

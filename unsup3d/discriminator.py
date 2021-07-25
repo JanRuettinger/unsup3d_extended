@@ -13,7 +13,7 @@ from PIL import Image
 EPS = 1e-7
 
 
-class Unsup3D_Discriminator():
+class Unsup3D_Discriminator:
   def __init__(self, cfgs):
     self.device = cfgs.get('device', 'cpu')
     self.image_size = cfgs.get('image_size', 64)

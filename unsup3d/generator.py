@@ -11,7 +11,7 @@ from PIL import Image
 
 EPS = 1e-7
 
-class Unsup3d_Generator():
+class Unsup3d_Generator:
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
