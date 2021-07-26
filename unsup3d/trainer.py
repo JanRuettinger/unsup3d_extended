@@ -7,7 +7,7 @@ from . import utils
 from .dataloaders import get_data_loaders
 
 
-class Trainer():
+class Trainer:
     def __init__(self, cfgs, model):
         self.device = cfgs.get('device', 'cpu')
         self.num_epochs = cfgs.get('num_epochs', 30)
