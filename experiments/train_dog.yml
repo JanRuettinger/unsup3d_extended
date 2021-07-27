@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/discriminator_without_random_view
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/03
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -22,13 +22,13 @@ train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
 
 # generator
 model_name: unsup3d_celeba
-min_depth: 0.92
-max_depth: 1.08
+min_depth: 0.88
+max_depth: 1.12
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 2 # 1
-lam_perc_decrease_start_epoch: 15
+lam_perc_decrease_start_epoch: 200
 discriminator_loss_start_epoch: -1
 lam_flip: 0.6
 use_lpips: true
@@ -43,7 +43,7 @@ view_loss_weight: 0.1
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0
+discriminator_loss: 0.1
 discriminator_loss_type: bce
 
 ## renderer

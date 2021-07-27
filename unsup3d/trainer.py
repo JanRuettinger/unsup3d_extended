@@ -504,8 +504,14 @@ class Trainer:
         discriminator.set_eval()
 
         input_im = input.to(self.device)
+        b = input.shape[0]
 
-        x_fake, recon_im_mask,_, _,_ = generator.forward(input)
+        random_view = torch.rand(b, 6)
+        random_view[:,3:] = 0
+        random_view[:,:2] = 0
+        random_view[:,2] -= 0.5
+
+        x_fake, recon_im_mask,_, _,_ = generator.forward(input, random_view)
         x_fake = torch.clamp(x_fake,0,1)*2 -1 
         discriminator.forward(x_fake)
         discriminator.visualize(logger, total_iter, fake=True)
