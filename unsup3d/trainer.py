@@ -235,13 +235,37 @@ class Trainer():
         fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
         # print recon_im and mask
-        detached_x_fake = input_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        img.save(f"train_input_{iter}.png")
+        # detached_x_fake = input_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"input_im/train_input_{iter}_0.png")
 
-        detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        img.save(f"train_recon{iter}.png")
+        # detached_x_fake = input_im.detach().permute(0,2,3,1)[1].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"input_im/train_input_{iter}_1.png")
+
+        # detached_x_fake = input_im.detach().permute(0,2,3,1)[2].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"input_im/train_input_{iter}_2.png")
+
+        # detached_x_fake = input_im.detach().permute(0,2,3,1)[3].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"input_im/train_input_{iter}_3.png")
+
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"recon_im/train_recon{iter}_0.png")
+
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[1].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"recon_im/train_recon{iter}_1.png")        
+
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[2].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"recon_im/train_recon{iter}_2.png")
+
+        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[3].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
+        # img.save(f"recon_im/train_recon{iter}_3.png")
 
         # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
         # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
