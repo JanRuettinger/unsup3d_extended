@@ -234,66 +234,12 @@ class Trainer:
 
         fake_recon_im, recon_im_mask, conf_sigma_l1, conf_sigma_percl, view_loss = generator.forward(input)
 
-        # print recon_im and mask
-        # detached_x_fake = input_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"input_im/train_input_{iter}_0.png")
-
-        # detached_x_fake = input_im.detach().permute(0,2,3,1)[1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"input_im/train_input_{iter}_1.png")
-
-        # detached_x_fake = input_im.detach().permute(0,2,3,1)[2].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"input_im/train_input_{iter}_2.png")
-
-        # detached_x_fake = input_im.detach().permute(0,2,3,1)[3].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"input_im/train_input_{iter}_3.png")
-
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"recon_im/train_recon{iter}_0.png")
-
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"recon_im/train_recon{iter}_1.png")        
-
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[2].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"recon_im/train_recon{iter}_2.png")
-
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[3].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save(f"recon_im/train_recon{iter}_3.png")
-
-        # detached_x_fake = fake_recon_im.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('recon_flipped.png')
-
-        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
-        # img.save('im_mask.png')
-
-        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[b+1].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
-        # img.save('im_mask_flipped.png')
-
-        # masked_input_im = input_im*recon_im_mask[:b] + (1-recon_im_mask[:b])
-        # detached_input_im = masked_input_im.permute(0,2,3,1)
-        # detached_input_im = detached_input_im.detach()[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_input_im)).convert('RGB')
-        # img.save('masked_img.png')
-
         fake_recon_im_disc = torch.clamp(fake_recon_im,0,1)*2 -1 
-        # fake_recon_im_disc = fake_recon_im
         d_fake = discriminator.forward(fake_recon_im_disc)
         if self.discriminator_loss_type == "bce":
             gloss = losses.compute_bce(d_fake, 1)
         else:
             gloss = losses.compute_lse(d_fake, 1)
-
-        # input_im wrong
 
         if self.conf_map_enabled:
             loss_l1_im = losses.photometric_loss(fake_recon_im[:b], input_im, mask=recon_im_mask[:b], conf_sigma=conf_sigma_l1[:,:1])
@@ -481,10 +427,6 @@ class Trainer:
         else:
             d_loss_real = losses.compute_lse(d_real, 1)
 
-        # detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
-        # img.save('real_disc_val.png')
-
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
         # loss_d_full += reg
 
@@ -536,8 +478,3 @@ class Trainer:
             img = Image.fromarray(np.uint8(value)).convert('RGB')
             img_path = img_dir / f'recon_im_{iter}_{key}.png'
             img.save(img_path)
-
-        # detached_im_mask = recon_im_mask.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_im_mask[:,:,0]))
-        # img.save('im_mask.png')
-
