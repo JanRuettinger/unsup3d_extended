@@ -2,8 +2,8 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/03
+batch_size: 80
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/08_80_bs
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -43,7 +43,7 @@ view_loss_weight: 0.1
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0.1
+discriminator_loss: 0
 discriminator_loss_type: bce
 
 ## renderer

@@ -2,15 +2,15 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 25
+batch_size: 80
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/gans/dogs_32_05_perc_loss
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_13/dogs_64_gan_medium
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/GAN_14/dogs_64_gan_medium
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
-log_freq: 10
+log_freq: 150
 
 ## dataloader
 num_workers: 4
@@ -45,7 +45,7 @@ view_loss_weight: 0
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0.1
+discriminator_loss: 0.07
 discriminator_loss_type: bce
 
 

@@ -59,43 +59,7 @@ class Unsup3D_Discriminator:
     self.output = self.model(self.input_im)
     return self.output
 
-        #         #### GAN losses ####
-        # # Generator loss & generator optimization
-        # x_fake = self.recon_im
-        # with torch.no_grad():
-        #     d_fake = self.netG_discriminator(x_fake)
-        # loss_gen = compute_bce(d_fake, 1)
-
-        # # Discriminator loss & discriminator optimization
-        # x_real = self.input_im
-        # self.canon_depth*(1-depth_border) + depth_border *self.border_depth
-        # x_real = x_real*self.recon_im_mask_both + tensor.ones_like(self.input_im)*(1-self.recon_im_mask_both)
-        # # mask input_image
-        # loss_dis_full = 0.
-
-        # d_real = self.netG_discriminator(x_real)
-        # loss_dis_real = compute_bce(d_real, 1)
-        # loss_dis_full += loss_dis_real
-
-        # # reg = 10. * compute_grad2(d_real, x_real).mean()
-        # # loss_d_full += reg
-
-        # x_fake = self.recon_im
-        # x_fake.requires_grad = False
-        # d_fake = self.netG_discriminator(x_fake)
-        # loss_dis_fake = compute_bce(d_fake, 0)
-        # loss_dis_full += loss_dis_fake
-
-
-        # self.total_loss += loss_gen + loss_dis_full
-
-        # # loss_d_full.backward()
-        # # self.optimizer_d.step()
-
   def visualize(self, logger, total_iter, fake):
-    # b, c, h, w = self.input_im.shape
-    # b0 = min(max_bs, b)
-
     output_name = "fake" if fake == True else "real"
     output = F.sigmoid(self.output) 
     logger.add_histogram(f"Discriminator/discriminator_output_{output_name}", output, total_iter)

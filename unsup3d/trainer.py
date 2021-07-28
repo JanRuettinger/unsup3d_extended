@@ -195,8 +195,8 @@ class Trainer:
                     m_dis = self.validation_step_discriminator(self.viz_input)
                     self.log_loss_generator(self.logger,m_gen,total_iter)
                     self.log_loss_discriminator(self.logger,m_dis,total_iter)
-                    self.generator.visualize(self.logger, total_iter=total_iter, max_bs=25)
-                    self.visualization_helper_discriminator(self.viz_input, self.logger, total_iter=total_iter, max_bs=25)
+                    self.generator.visualize(self.logger, total_iter=total_iter, max_bs=40)
+                    self.visualization_helper_discriminator(self.viz_input, self.logger, total_iter=total_iter, max_bs=40)
                     # self.discriminator.visualize(self.logger, total_iter=total_iter, max_bs=25)
 
         return metrics
@@ -342,12 +342,7 @@ class Trainer:
         random_view[:,:2] = 0
         random_view[:,2] -= 0.5
         with torch.no_grad():
-            x_fake, recon_im_mask, _, _, _ = generator.forward(input_im, random_view) # no grad loop -> no grad reuqired here
-
-        # print recon_im and mask
-        # detached_x_fake = x_fake.detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('random_view_fakes.png')
+            x_fake, recon_im_mask, _, _, _ = generator.forward(input_im, random_view=None) # no grad loop -> no grad reuqired here
 
         x_fake = torch.clamp(x_fake,0,1)*2 -1
         # x_fake = x_fake.detach() 
@@ -356,10 +351,6 @@ class Trainer:
             d_loss_fake = losses.compute_bce(d_fake, 0)
         else:
             d_loss_fake = losses.compute_lse(d_fake, 0)
-
-        # detached_x_fake = (x_fake/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('fake_disc_train.png')
 
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
         recon_im_mask = recon_im_mask.detach()
@@ -371,9 +362,9 @@ class Trainer:
         else:
             d_loss_real = losses.compute_lse(d_real, 1)
 
-        # detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
-        # img.save('real_disc_train.png')
+        detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
+        img.save('real_disc_train.png')
 
         # input_im.requires_grad_() # QUESTION: Why required true on input tensor?
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()
@@ -405,17 +396,13 @@ class Trainer:
         random_view[:,:2] = 0
         random_view[:,2] -= 0.5
 
-        x_fake, recon_im_mask,_, _, _ = generator.forward(input, random_view)
+        x_fake, recon_im_mask,_, _, _ = generator.forward(input, random_view=None)
         x_fake = torch.clamp(x_fake,0,1)*2 -1
         d_fake = discriminator.forward(x_fake)
         if self.discriminator_loss_type == "bce":
             d_loss_fake = losses.compute_bce(d_fake, 0)
         else:
             d_loss_fake = losses.compute_lse(d_fake, 0)
-
-        # detached_x_fake = (x_fake/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        # img = Image.fromarray(np.uint8(detached_x_fake)).convert('RGB')
-        # img.save('fake_disc_val.png')
 
         # input_im.requires_grad_(False)
         input_with_flipped = torch.cat([input_im, input_im.flip(2)], 0)  # flip
@@ -453,7 +440,7 @@ class Trainer:
         random_view[:,:2] = 0
         random_view[:,2] -= 0.5
 
-        x_fake, recon_im_mask,_, _,_ = generator.forward(input, random_view)
+        x_fake, recon_im_mask,_, _,_ = generator.forward(input, random_view=None)
         x_fake = torch.clamp(x_fake,0,1)*2 -1 
         discriminator.forward(x_fake)
         discriminator.visualize(logger, total_iter, fake=True)
