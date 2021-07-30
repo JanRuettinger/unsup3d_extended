@@ -11,7 +11,7 @@ from PIL import Image
 
 EPS = 1e-7
 
-class Unsup3d_Generator:
+class Unsup3d:
     def __init__(self, cfgs):
         self.model_name = cfgs.get('model_name', self.__class__.__name__)
         self.device = cfgs.get('device', 'cpu')
@@ -23,18 +23,16 @@ class Unsup3d_Generator:
         self.xyz_rotation_range = cfgs.get('xyz_rotation_range', 60)
         self.xy_translation_range = cfgs.get('xy_translation_range', 0.1)
         self.z_translation_range = cfgs.get('z_translation_range', 0.1)
-        self.lam_perc = cfgs.get('lam_perc', 1)
-        self.lam_flip = cfgs.get('lam_flip', 0.5)
-        self.lr = cfgs.get('lr_generator', 1e-4)
-        self.load_gt_depth = cfgs.get('load_gt_depth', False)
-        self.depthmap_mode = cfgs.get('depth_network', 'resnet')
-        self.use_lpips = cfgs.get('use_lpips', False)
-        self.conf_map_enabled = cfgs.get('conf_map_enabled', True)
+        self.lam_perc_type = cfgs.get('lam_perc_type', 1)
+        self.lam_flip = cfgs.get('lam_flip_type', 0.5)
+        self.lr_generator = cfgs.get('lr_generator', 1e-4)
+        self.lr_discriminator = cfgs.get('lr_discriminator', 1e-4)
+        self.perc_loss_type = cfgs.get('perc_loss_type', "lpips")
+        self.alebdo_net_type = cfgs.get('albedo_net_type', "resnet")
+        self.depthmap_net_type = cfgs.get('depthmap_net_type', "resnet")
         self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
+        self.use_conf_map = cfgs.get('use_conf_map', True)
         self.renderer = Renderer(cfgs)
-        self.alebdo_mode = cfgs.get('use_resnet_albedonet', False)
-        self.depthmap_mode = cfgs.get('use_resnet_depthmapnet', False)
-        self.depthmap_prior_fac = cfgs.get('depthmap_prior_fac', 1)
 
         ## networks and optimizers
         if self.depthmap_size == 64:
