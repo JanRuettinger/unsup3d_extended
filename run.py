@@ -1,6 +1,6 @@
 import argparse
 import torch
-from unsup3d import setup_runtime, Trainer, Unsup3d_Generator, Unsup3D_Discriminator
+from unsup3d import setup_runtime, Trainer, Unsup3d
 
 
 ## runtime arguments
@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 ## set up
 cfgs = setup_runtime(args)
-trainer = Trainer(cfgs, Unsup3d_Generator, Unsup3D_Discriminator)
+trainer = Trainer(cfgs, Unsup3d)
 run_train = cfgs.get('run_train', False)
 run_test = cfgs.get('run_test', False)
 

@@ -174,7 +174,9 @@ class Trainer:
                 self.model.backward()
             elif is_validation and iter <= 5:
                 # save predictions
-                self.save_example_predictions(input, iter)
+                # self.save_example_predictions(input, iter)
+                # TODO
+                continue
             elif is_test:
                 self.model.save_results(self.test_result_dir)
             

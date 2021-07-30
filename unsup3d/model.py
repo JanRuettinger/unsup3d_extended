@@ -8,7 +8,7 @@ from . import utils
 from .renderer import Renderer
 import lpips
 from PIL import Image
-import losses
+from . import losses
 
 EPS = 1e-7
 
@@ -25,29 +25,39 @@ class Unsup3d:
         self.xy_translation_range = cfgs.get('xy_translation_range', 0.1)
         self.z_translation_range = cfgs.get('z_translation_range', 0.1)
         self.lam_perc_type = cfgs.get('lam_perc_type', 1)
-        self.lam_flip = cfgs.get('lam_flip_type', 0.5)
+        self.lam_flip_weight = cfgs.get('lam_flip_weight', 0.5)
+        self.lam_perc_weight = cfgs.get('lam_perc_weight', 0.5)
         self.lr_generator = cfgs.get('lr_generator', 1e-4)
         self.lr_discriminator = cfgs.get('lr_discriminator', 1e-4)
+        self.discriminator_loss_weight = cfgs.get('discriminator_loss_weight', 0.1)
         self.perc_loss_type = cfgs.get('perc_loss_type', "lpips")
+        self.view_loss_weight = cfgs.get('view_loss_weight', 0.1)
         self.alebdo_net_type = cfgs.get('albedo_net_type', "resnet")
         self.depthmap_net_type = cfgs.get('depthmap_net_type', "resnet")
         self.use_depthmap_prior = cfgs.get('use_depthmap_prior', True)
         self.use_conf_map = cfgs.get('use_conf_map', True)
         self.renderer = Renderer(cfgs)
 
+        loss_fn = lpips.LPIPS(net='alex')
+
+        if self.perc_loss_type == "lpips":
+            self.PerceptualLoss = loss_fn.to(device=self.device)
+        else:
+            self.PerceptualLoss = networks.PerceptualLoss().to(device=self.device)
+
         ## networks and optimizers
         if self.depthmap_size == 64:
-            if self.depthmap_mode:
+            if self.depthmap_net_type == "resnet":
                 self.netD = networks.DepthMapResNet64(cin=3, cout=1, nf=64,activation=None)
             else:
                 self.netD = networks.DepthMapNet64(cin=3, cout=1, nf=64,zdim=256,activation=None)
         else:
-            if self.depthmap_mode:
+            if self.depthmap_net_type == "resnet":
                 self.netD = networks.DepthMapResNet(cin=3, cout=1, nf=64,activation=None)
             else:
                 self.netD = networks.DepthMapNet(cin=3, cout=1, nf=64,zdim=256,activation=None)
 
-        if self.alebdo_mode:
+        if self.alebdo_net_type == "resnet":
             self.netA = networks.AlbedoMapResNet(cin=3, cout=3, nf=64)
         else:
             self.netA = networks.AlbedoMapNet(cin=3, cout=3, nf=64, zdim=256)
@@ -56,12 +66,12 @@ class Unsup3d:
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
 
-        self.netDisc = networks.DCDiscriminator(in_dim=3, n_feat=512, img_size=64)
+        self.netDisc = networks.DCDiscriminator(cin=3, cout=1, nf=64, activation=nn.Tanh)
 
-        self.network_names = [k for k in vars(self) if 'net' in k]
+        self.network_names = [k for k in vars(self) if k.startswith('net')]
         self.make_optimizer = lambda model: torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
-            lr=self.lr, betas=(0.9, 0.999), weight_decay=5e-4)
+            lr=self.lr_generator, betas=(0.9, 0.999), weight_decay=5e-4)
 
         ## depth rescaler: -1~1 -> min_deph~max_deph
         self.depth_rescaler = lambda d : (1+d)/2 *self.max_depth + (1-d)/2 *self.min_depth
@@ -126,7 +136,7 @@ class Unsup3d:
     #         getattr(self, optim_name).step()o
 
     def get_real_fake(self):
-        self.fake = torch.clamp(self.recon_im, 0,1)*2-1
+        self.fake = torch.clamp(self.recon_im, 0,1)
         self.real = self.input_im*2-1
         return self.real, self.fake
 
@@ -142,7 +152,7 @@ class Unsup3d:
         
         self.GAN_G_pred = self.netDisc(fake *2-1)
         self.loss_G_GAN = losses.compute_bce(self.GAN_G_pred, 1)
-        self.loss_G_total = self.loss_total + self.lam_GAN*self.loss_G_GAN
+        self.loss_G_total = self.loss_conventional + self.discriminator_loss_weight*self.loss_G_GAN
         self.loss_G_total.backward()
         for optim_name in self.optimizer_names:
             if optim_name == "optimizerDisc":
@@ -154,7 +164,7 @@ class Unsup3d:
         networks.set_requires_grad(self.netDisc, True)
         self.optimizerDisc.zero_grad()
         self.GAN_D_real_pred = self.netDisc(real.detach())
-        self.GAN_D_fake_pred = self.netDisc(fake.detach())
+        self.GAN_D_fake_pred = self.netDisc(fake.detach()*2-1)
         self.loss_D_GAN_real = losses.compute_bce(self.GAN_D_real_pred, True) 
         self.loss_D_GAN_fake = losses.compute_bce(self.GAN_D_fake_pred, False)
         self.loss_D_total = (self.loss_D_GAN_fake + self.loss_D_GAN_real)*0.5
@@ -164,8 +174,6 @@ class Unsup3d:
     
     def forward(self, input):
         """Feedforward once."""
-        if self.load_gt_depth:
-            input, depth_gt = input
         self.input_im = input.to(self.device)
         b, c, h, w = self.input_im.shape
 
@@ -178,7 +186,7 @@ class Unsup3d:
             depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy')).to(self.device)
             depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
             depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[self.depthmap_size,self.depthmap_size], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + self.depthmap_prior_fac*depthmap_prior
+            self.canon_depth = self.canon_depth + 5*depthmap_prior
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -254,26 +262,26 @@ class Unsup3d:
         # detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
 
         if self.use_conf_map:
-            loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
-            loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
+            self.loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
+            self.loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
         else:
-            loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
-            loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:])
+            self.loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
+            self.loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:])
 
-        if self.use_lpips:
-            loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
-            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+        if self.perc_loss_type == "lpips":
+            self.loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
+            self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
         else:
-            if self.conf_map_enabled:
-                loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.onf_sigma_percl[:,:1])
-                loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
+            if self.use_conf_map:
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.onf_sigma_percl[:,:1])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
             else:
-                loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
-                loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b])
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
+                self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b])
 
-        self.loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
+        self.loss_conventional = self.loss_l1_im + self.lam_flip_weight*self.loss_l1_im_flip + self.lam_perc_weight*(self.loss_perc_im + self.lam_flip_weight*self.loss_perc_im_flip) + self.view_loss_weight*self.loss_view
 
-        return {"loss_conventional": self.loss_convential}
+        return {"loss_conventional": self.loss_conventional}
 
 
     def visualize(self, logger, total_iter, max_bs=25):
@@ -338,13 +346,13 @@ class Unsup3d:
 
         ## write summary
         logger.add_scalar('Loss/loss_total', self.loss_G_total, total_iter)
+        logger.add_scalar('Loss/loss_without_gan', self.loss_conventional, total_iter)
         logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
         logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
         logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
         logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
+        logger.add_scalar('Loss/loss_view', self.loss_view, total_iter)
 
-        logger.add_scalar('Loss_Gen/loss_view', self.loss_view, total_iter)
-        logger.add_scalar('Loss_Gen/loss_generator', self.loss_G_GAN, total_iter)
         logger.add_scalar('Loss_Dis/d_loss', (self.loss_D_GAN_real+self.loss_D_GAN_fake)*0.5, total_iter)
         logger.add_scalar('Loss_Dis/d_loss_real', self.loss_D_GAN_real, total_iter)
         logger.add_scalar('Loss_Dis/d_loss_fake', self.loss_D_GAN_fake, total_iter)
@@ -380,7 +388,7 @@ class Unsup3d:
 
         logger.add_histogram('Image/canonical_albedo_hist', canon_albedo, total_iter)
 
-        if self.conf_map_enabled:
+        if self.use_conf_map:
             conf_map_l1 = 1/(1+self.conf_sigma_l1[:b0,:1].detach().cpu()+EPS)
             conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b0,1:].detach().cpu()+EPS)
             conf_map_percl = 1/(1+self.conf_sigma_percl[:b0,:1].detach().cpu()+EPS)

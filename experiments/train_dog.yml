@@ -2,8 +2,8 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 80
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/08_80_bs
+batch_size: 20
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/03
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -35,6 +35,7 @@ albedo_net_type: resnet
 depthmap_net_type: resnet
 use_depthmap_prior: true
 use_conf_map: true
+view_loss_weight: 0
 
 # discriminator
 lr_discriminator: 0.001

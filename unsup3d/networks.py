@@ -6,40 +6,65 @@ from math import log2
 
 EPS = 1e-7
 
+# class DCDiscriminator(nn.Module):
+#     ''' DC Discriminator class.
+#     Args:
+#         in_dim (int): input dimension
+#         n_feat (int): features of final hidden layer
+#         img_size (int): input image size
+#     '''
+#     def __init__(self, in_dim=3, n_feat=512, img_size=64):
+#         super(DCDiscriminator, self).__init__()
+
+#         self.in_dim = in_dim
+#         n_layers = int(log2(img_size) - 2)
+#         self.blocks = nn.ModuleList(
+#             [nn.Conv2d(
+#                 in_dim,
+#                 int(n_feat / (2 ** (n_layers - 1))),
+#                 4, 2, 1, bias=False)] + [nn.Conv2d(
+#                     int(n_feat / (2 ** (n_layers - i))),
+#                     int(n_feat / (2 ** (n_layers - 1 - i))),
+#                     4, 2, 1, bias=False) for i in range(1, n_layers)])
+
+#         self.conv_out = nn.Conv2d(n_feat, 1, 4, 1, 0, bias=False)
+#         self.actvn = nn.LeakyReLU(0.2, inplace=True)
+
+#     def forward(self, x, **kwargs):
+#         batch_size = x.shape[0]
+#         if x.shape[1] != self.in_dim:
+#             x = x[:, :self.in_dim]
+#         for layer in self.blocks:
+#             x = self.actvn(layer(x))
+
+#         out = self.conv_out(x)
+#         out = out.reshape(batch_size, 1)
+#         return out
+
 class DCDiscriminator(nn.Module):
-    ''' DC Discriminator class.
-    Args:
-        in_dim (int): input dimension
-        n_feat (int): features of final hidden layer
-        img_size (int): input image size
-    '''
-    def __init__(self, in_dim=3, n_feat=512, img_size=64):
+    def __init__(self, cin, cout, nf=64, norm=nn.InstanceNorm2d, activation=None):
         super(DCDiscriminator, self).__init__()
+        network = [
+            nn.Conv2d(cin, nf, kernel_size=4, stride=2, padding=1, bias=False),  # 64x64 -> 32x32
+            norm(nf),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf, nf*2, kernel_size=4, stride=2, padding=1, bias=False),  # 32x32 -> 16x16
+            norm(nf*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*2, nf*4, kernel_size=4, stride=2, padding=1, bias=False),  # 16x16 -> 8x8
+            norm(nf*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*4, nf*8, kernel_size=4, stride=2, padding=1, bias=False),  # 8x8 -> 4x4
+            # norm(nf*8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(nf*8, cout, kernel_size=4, stride=1, padding=0, bias=False),  # 4x4 -> 1x1
+            ]
+        if activation is not None:
+            network += [activation()]
+        self.network = nn.Sequential(*network)
 
-        self.in_dim = in_dim
-        n_layers = int(log2(img_size) - 2)
-        self.blocks = nn.ModuleList(
-            [nn.Conv2d(
-                in_dim,
-                int(n_feat / (2 ** (n_layers - 1))),
-                4, 2, 1, bias=False)] + [nn.Conv2d(
-                    int(n_feat / (2 ** (n_layers - i))),
-                    int(n_feat / (2 ** (n_layers - 1 - i))),
-                    4, 2, 1, bias=False) for i in range(1, n_layers)])
-
-        self.conv_out = nn.Conv2d(n_feat, 1, 4, 1, 0, bias=False)
-        self.actvn = nn.LeakyReLU(0.2, inplace=True)
-
-    def forward(self, x, **kwargs):
-        batch_size = x.shape[0]
-        if x.shape[1] != self.in_dim:
-            x = x[:, :self.in_dim]
-        for layer in self.blocks:
-            x = self.actvn(layer(x))
-
-        out = self.conv_out(x)
-        out = out.reshape(batch_size, 1)
-        return out
+    def forward(self, input):
+        return self.network(input).reshape(input.size(0),-1)
 
 class Encoder(nn.Module):
     def __init__(self, cin, cout, nf=64, activation=nn.Tanh):
