@@ -8,6 +8,7 @@ from . import utils
 from .renderer import Renderer
 import lpips
 from PIL import Image
+import losses
 
 EPS = 1e-7
 
@@ -54,6 +55,8 @@ class Unsup3d:
         self.netL = networks.Encoder(cin=3, cout=4, nf=32)
         self.netV = networks.Encoder(cin=3, cout=6, nf=32)
         self.netC = networks.ConfNet(cin=3, cout=2, nf=64, zdim=128)
+
+        self.netDisc = networks.DCDiscriminator(in_dim=3, n_feat=512, img_size=64)
 
         self.network_names = [k for k in vars(self) if 'net' in k]
         self.make_optimizer = lambda model: torch.optim.Adam(
@@ -113,15 +116,53 @@ class Unsup3d:
         for net_name in self.network_names:
             getattr(self, net_name).eval()
 
-    def reset_optimizer(self):
+    # TODO
+    # def reset_optimizer(self):
+    #     for optim_name in self.optimizer_names:
+    #         getattr(self, optim_name).zero_grad()
+    
+    # def optimizer_step(self):
+    #     for optim_name in self.optimizer_names:
+    #         getattr(self, optim_name).step()o
+
+    def get_real_fake(self):
+        self.fake = torch.clamp(self.recon_im, 0,1)*2-1
+        self.real = self.input_im*2-1
+        return self.real, self.fake
+
+    def backward(self):
+        real, fake = self.get_real_fake()
+        # backward Generator
+        # Don't backprop through discriminator
+        networks.set_requires_grad(self.netDisc, False)
         for optim_name in self.optimizer_names:
+            if optim_name == "optimizerDisc":
+                continue # Discriminator optimizer doesn't need to be reset
             getattr(self, optim_name).zero_grad()
-    
-    def optimizer_step(self):
+        
+        self.GAN_G_pred = self.netDisc(fake *2-1)
+        self.loss_G_GAN = losses.compute_bce(self.GAN_G_pred, 1)
+        self.loss_G_total = self.loss_total + self.lam_GAN*self.loss_G_GAN
+        self.loss_G_total.backward()
         for optim_name in self.optimizer_names:
-            getattr(self, optim_name).step()
+            if optim_name == "optimizerDisc":
+                continue # Discriminator optimizer doesn't need to be reset
+            getattr(self, optim_name).step() 
+
+        # backward Discriminiator
+        # Don't backprop through generator
+        networks.set_requires_grad(self.netDisc, True)
+        self.optimizerDisc.zero_grad()
+        self.GAN_D_real_pred = self.netDisc(real.detach())
+        self.GAN_D_fake_pred = self.netDisc(fake.detach())
+        self.loss_D_GAN_real = losses.compute_bce(self.GAN_D_real_pred, True) 
+        self.loss_D_GAN_fake = losses.compute_bce(self.GAN_D_fake_pred, False)
+        self.loss_D_total = (self.loss_D_GAN_fake + self.loss_D_GAN_real)*0.5
+        self.loss_D_total.backward()
+        self.optimizerDisc.step()
+
     
-    def forward(self, input, random_view=None):
+    def forward(self, input):
         """Feedforward once."""
         if self.load_gt_depth:
             input, depth_gt = input
@@ -189,15 +230,15 @@ class Unsup3d:
         # std = torch.ones((b), requires_grad=False)*2
         # p = torch.distributions.Normal(mu, std)
         view_norm_batch = torch.mean(self.view, dim=0)
-        self.view_loss = torch.norm(view_norm_batch)
+        self.loss_view = torch.norm(view_norm_batch)
         # loss_view = torch.distributions.kl_divergence(p, q).mean()
         
-        if random_view is not None:
-            random_view = random_view.repeat(2,1)
-            self.view = torch.cat([
-            random_view[:,:3] *math.pi/180 *self.xyz_rotation_range/4,
-            random_view[:,3:5] *self.xy_translation_range/4,
-            random_view[:,5:] *self.z_translation_range/4], 1)
+        # if random_view is not None:
+        #     random_view = random_view.repeat(2,1)
+        #     self.view = torch.cat([
+        #     random_view[:,:3] *math.pi/180 *self.xyz_rotation_range/4,
+        #     random_view[:,3:5] *self.xy_translation_range/4,
+        #     random_view[:,5:] *self.z_translation_range/4], 1)
 
         ## reconstruct input view
         self.meshes = self.renderer.create_meshes_from_depth_map(self.canon_depth) # create meshes from vertices and faces
@@ -212,7 +253,27 @@ class Unsup3d:
         # recon_im_mask_both = self.recon_im_mask[:b] * self.recon_im_mask[b:]
         # detached_mask = recon_im_mask_both.repeat(2,1,1,1).detach()
 
-        return self.recon_im, self.recon_im_mask, self.conf_sigma_l1, self.conf_sigma_percl, self.view_loss
+        if self.use_conf_map:
+            loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_l1[:,:1])
+            loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:], conf_sigma=self.conf_sigma_l1[:,1:])
+        else:
+            loss_l1_im = losses.photometric_loss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
+            loss_l1_im_flip = losses.photometric_loss(self.recon_im[b:], self.input_im, mask=self.recon_im_mask[b:])
+
+        if self.use_lpips:
+            loss_perc_im = torch.mean(self.PerceptualLoss.forward(self.recon_im[:b], self.input_im))
+            loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
+        else:
+            if self.conf_map_enabled:
+                loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.onf_sigma_percl[:,:1])
+                loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
+            else:
+                loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
+                loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b])
+
+        self.loss_conventional = loss_l1_im + self.lam_flip*loss_l1_im_flip + self.lam_perc*(loss_perc_im + self.lam_flip*loss_perc_im_flip) + self.view_loss_weight*view_loss
+
+        return {"loss_conventional": self.loss_convential}
 
 
     def visualize(self, logger, total_iter, max_bs=25):
@@ -276,12 +337,21 @@ class Unsup3d:
         reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
         ## write summary
-        # logger.add_scalar('Loss/loss_total', self.loss_total, total_iter)
-        # logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
-        # logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
+        logger.add_scalar('Loss/loss_total', self.loss_G_total, total_iter)
+        logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
+        logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
+        logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
+        logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
 
-        # logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
-        # logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
+        logger.add_scalar('Loss_Gen/loss_view', self.loss_view, total_iter)
+        logger.add_scalar('Loss_Gen/loss_generator', self.loss_G_GAN, total_iter)
+        logger.add_scalar('Loss_Dis/d_loss', (self.loss_D_GAN_real+self.loss_D_GAN_fake)*0.5, total_iter)
+        logger.add_scalar('Loss_Dis/d_loss_real', self.loss_D_GAN_real, total_iter)
+        logger.add_scalar('Loss_Dis/d_loss_fake', self.loss_D_GAN_fake, total_iter)
+    
+        logger.add_histogram(f"Discriminator/discriminator_output_real", self.GAN_D_real_pred, total_iter)
+        logger.add_histogram(f"Discriminator/discriminator_output_fake", self.GAN_D_fake_pred, total_iter)
+
 
         logger.add_histogram('Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
@@ -328,22 +398,6 @@ class Unsup3d:
         logger.add_video('Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
         logger.add_video('Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
 
-        # visualize images and accuracy if gt is loaded
-        if self.load_gt_depth:
-            depth_gt = ((self.depth_gt[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
-            normal_gt = self.normal_gt.permute(0,3,1,2)[:b0].detach().cpu() /2+0.5
-            sie_map_masked = self.sie_map_masked[:b0].detach().unsqueeze(1).cpu() *1000
-            norm_err_map_masked = self.norm_err_map_masked[:b0].detach().unsqueeze(1).cpu() /100
-
-            logger.add_scalar('Acc_masked/MAE_masked', self.acc_mae_masked.mean(), total_iter)
-            logger.add_scalar('Acc_masked/MSE_masked', self.acc_mse_masked.mean(), total_iter)
-            logger.add_scalar('Acc_masked/SIE_masked', self.acc_sie_masked.mean(), total_iter)
-            logger.add_scalar('Acc_masked/NorErr_masked', self.acc_normal_masked.mean(), total_iter)
-
-            log_grid_image('Depth_gt/depth_gt', depth_gt)
-            log_grid_image('Depth_gt/normal_gt', normal_gt)
-            log_grid_image('Depth_gt/sie_map_masked', sie_map_masked)
-            log_grid_image('Depth_gt/norm_err_map_masked', norm_err_map_masked)
 
     def save_results(self, save_dir):
         b, c, h, w = self.input_im.shape
@@ -374,23 +428,6 @@ class Unsup3d:
             utils.save_images(save_dir, conf_map_l1_flip, suffix='conf_map_l1_flip', sep_folder=sep_folder)
             utils.save_images(save_dir, conf_map_percl, suffix='conf_map_percl', sep_folder=sep_folder)
             utils.save_images(save_dir, conf_map_percl_flip, suffix='conf_map_percl_flip', sep_folder=sep_folder)
-
-
-        # save scores if gt is loaded
-        if self.load_gt_depth:
-            depth_gt = ((self.depth_gt[:b] -self.min_depth)/(self.max_depth-self.min_depth)).clamp(0,1).detach().cpu().unsqueeze(1).numpy()
-            normal_gt = self.normal_gt[:b].permute(0,3,1,2).detach().cpu().numpy() /2+0.5
-            utils.save_images(save_dir, depth_gt, suffix='depth_gt', sep_folder=sep_folder)
-            utils.save_images(save_dir, normal_gt, suffix='normal_gt', sep_folder=sep_folder)
-
-            all_scores = torch.stack([
-                self.acc_mae_masked.detach().cpu(),
-                self.acc_mse_masked.detach().cpu(),
-                self.acc_sie_masked.detach().cpu(),
-                self.acc_normal_masked.detach().cpu()], 1)
-            if not hasattr(self, 'all_scores'):
-                self.all_scores = torch.FloatTensor()
-            self.all_scores = torch.cat([self.all_scores, all_scores], 0)
 
     def save_scores(self, path):
         # save scores if gt is loaded
