@@ -2,9 +2,9 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/05
-# checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
+batch_size: 30
+# checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/05
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs_gan_refactor/01
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
 resume: false
@@ -17,8 +17,8 @@ num_workers: 4
 image_size: 128
 depthmap_size: 32
 # crop: 170 # 64 for debug_2 170 for normal
-train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
-# train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/dogs_cropped
+# train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/dogs_cropped
 
 # generator
 model_name: unsup3d_celeba
