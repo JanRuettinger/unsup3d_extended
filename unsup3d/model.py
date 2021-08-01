@@ -77,11 +77,11 @@ class Unsup3d:
         ## depth rescaler: -1~1 -> min_deph~max_deph
         self.depth_rescaler = lambda d : (1+d)/2 *self.max_depth + (1-d)/2 *self.min_depth
 
-    def toggle_grad(self, requires_grad):
-        for net_name in self.network_names:
-            model = getattr(self, net_name)
-            for p in model.parameters():
-                p.requires_grad_(requires_grad)
+    # def toggle_grad(self, requires_grad):
+    #     for net_name in self.network_names:
+    #         model = getattr(self, net_name)
+    #         for p in model.parameters():
+    #             p.requires_grad_(requires_grad)
 
     def init_optimizers(self):
         self.optimizer_names = []
@@ -137,7 +137,8 @@ class Unsup3d:
     #         getattr(self, optim_name).step()o
 
     def get_real_fake(self):
-        self.fake = torch.clamp(self.recon_im, 0,1)
+        b, c, h, w = self.input_im.shape
+        self.fake = torch.clamp(self.recon_im[:b], 0,1)
         self.real = self.input_im
         return self.real, self.fake
 
@@ -190,7 +191,7 @@ class Unsup3d:
             depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy')).to(self.device)
             depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
             depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[self.depthmap_size,self.depthmap_size], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + 5*depthmap_prior
+            self.canon_depth = self.canon_depth + 3*depthmap_prior
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
