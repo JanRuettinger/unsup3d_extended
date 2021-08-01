@@ -2,8 +2,8 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 80
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_random_view/08_80_bs
+batch_size: 40
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/old_gan2
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -39,7 +39,7 @@ num_faces_per_square: 2 # 2 -> 4 not implemented right now
 use_resnet_albedonet: false
 use_resnet_depthmapnet: true
 depthmap_prior_fac: 5
-view_loss_weight: 0.1
+view_loss_weight: 0
 
 # discriminator
 lr_discriminator: 0.001
