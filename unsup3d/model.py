@@ -128,9 +128,9 @@ class Unsup3d:
             getattr(self, net_name).eval()
 
     # TODO
-    # def reset_optimizer(self):
-    #     for optim_name in self.optimizer_names:
-    #         getattr(self, optim_name).zero_grad()
+    def reset_optimizer(self):
+        for optim_name in self.optimizer_names:
+            getattr(self, optim_name).zero_grad()
     
     # def optimizer_step(self):
     #     for optim_name in self.optimizer_names:
@@ -139,7 +139,7 @@ class Unsup3d:
     def get_real_fake(self):
         b, c, h, w = self.input_im.shape
         self.fake = torch.clamp(self.recon_im[:b], 0,1)
-        self.real = self.input_im
+        self.real = self.input_im*self.recon_im_mask[:b] + (1-self.recon_im_mask[:b])
         return self.real, self.fake
 
     def backward(self, epoch):
@@ -152,7 +152,7 @@ class Unsup3d:
                 continue # Discriminator optimizer doesn't need to be reset
             getattr(self, optim_name).zero_grad()
         
-        self.GAN_G_pred = self.netDisc(fake *2-1)
+        self.GAN_G_pred = self.netDisc(fake*2-1)
         self.loss_G_GAN = losses.compute_bce(self.GAN_G_pred, 1)
         if epoch > self.discriminator_loss_start_epoch:
             self.loss_G_total = self.loss_conventional + self.discriminator_loss_weight*self.loss_G_GAN
@@ -161,11 +161,12 @@ class Unsup3d:
         self.loss_G_total.backward()
         for optim_name in self.optimizer_names:
             if optim_name == "optimizerDisc":
-                continue # Discriminator optimizer doesn't need to be reset
+                continue 
             getattr(self, optim_name).step() 
 
         # backward Discriminiator
         # Don't backprop through generator
+        
         networks.set_requires_grad(self.netDisc, True)
         self.optimizerDisc.zero_grad()
         self.GAN_D_real_pred = self.netDisc(real.detach()*2-1)
@@ -175,6 +176,11 @@ class Unsup3d:
         self.loss_D_total = (self.loss_D_GAN_fake + self.loss_D_GAN_real)*0.5
         self.loss_D_total.backward()
         self.optimizerDisc.step()
+
+        # self.GAN_D_real_pred = 0
+        # self.GAN_D_fake_pred = 0
+        # self.loss_D_GAN_real = 0
+        # self.loss_D_GAN_fake = 0
 
     
     def forward(self, input):
@@ -191,7 +197,7 @@ class Unsup3d:
             depthmap_prior = torch.from_numpy(np.load(f'/users/janhr/unsup3d_extended/unsup3d/depth_map_prior/64x64.npy')).to(self.device)
             depthmap_prior = depthmap_prior.unsqueeze(0).unsqueeze(0)
             depthmap_prior = torch.nn.functional.interpolate(depthmap_prior, size=[self.depthmap_size,self.depthmap_size], mode='nearest', align_corners=None)[0,...]
-            self.canon_depth = self.canon_depth + 3*depthmap_prior
+            self.canon_depth = self.canon_depth + 5*depthmap_prior
         self.canon_depth = self.canon_depth.tanh()
         self.canon_depth = self.depth_rescaler(self.canon_depth)
 
@@ -278,7 +284,7 @@ class Unsup3d:
             self.loss_perc_im_flip = torch.mean(self.PerceptualLoss.forward(self.recon_im[b:],self.input_im))
         else:
             if self.use_conf_map:
-                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.onf_sigma_percl[:,:1])
+                self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_percl[:,:1])
                 self.loss_perc_im_flip = self.PerceptualLoss(self.recon_im[b:],self.input_im ,mask=self.recon_im_mask[:b], conf_sigma=self.conf_sigma_percl[:,1:])
             else:
                 self.loss_perc_im = self.PerceptualLoss(self.recon_im[:b], self.input_im, mask=self.recon_im_mask[:b])
@@ -319,8 +325,6 @@ class Unsup3d:
         loss_perc_im = validation_metrics["loss_perc_im"]
         loss_perc_im_flip = validation_metrics["loss_perc_im_flip"]
         loss_view = validation_metrics["loss_view"]
-
-
 
         # create shading image
         white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
@@ -491,6 +495,9 @@ class Unsup3d:
         canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
         canon_light_a = self.canon_light_a/2.+0.5
         canon_light_b = self.canon_light_b/2.+0.5
+        real, fake = self.get_real_fake()
+        real = real.detach().cpu()
+        fake = fake.detach().cpu()
 
         shadding_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(shading_img_rotated_video, 1)]  # [(C,H,W)]*T
         shadding_im_rotate_grid = torch.stack(shadding_im_rotate_grid, 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
@@ -540,6 +547,9 @@ class Unsup3d:
         log_grid_image('Depth/diffuse_shading', shading_im)
         log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
         log_grid_image('Depth/diffuse_shading_side_view_zoom_out', shading_im_side_view_zoom_out)
+
+        log_grid_image('Image/real', real)
+        log_grid_image('Image/fake', fake)
 
         logger.add_histogram('Image/canonical_albedo_hist', canon_albedo, total_iter)
 

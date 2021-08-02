@@ -176,6 +176,7 @@ class Trainer:
             for iter, input in enumerate(loader):
                 # if iter > 100:
                 #     break
+                # self.model.reset_optimizer()
                 m = self.model.forward(input)
                 self.model.backward(epoch)
                 metrics.update(m, self.batch_size)
@@ -189,26 +190,27 @@ class Trainer:
                         self.model.visualize(self.logger, total_iter=total_iter, max_bs=25)
 
         if is_validation:
-            validation_metrics = {}
-            total_iter = (epoch+1)*self.train_iter_per_epoch
-            for iter, input in enumerate(loader):
-                m1 = self.model.forward(input)
-                m2 = self.model.backward_without_paramter_update(epoch)
-                m = {**m1, **m2}
-                metrics.update(m, self.batch_size)
-                print(f"V{epoch:02}/{iter:05}/{metrics}")
-                for key, item in m.items():
-                    if key in validation_metrics:
-                        validation_metrics[key] += item
-                    else:
-                        validation_metrics[key] = item
-
-            for key in validation_metrics:
-                validation_metrics[key] /= (iter+1)
-
             with torch.no_grad():
-                self.model.forward(self.viz_input_val)
-            self.model.visualize_validation(self.logger, total_iter=total_iter, validation_metrics=validation_metrics, max_bs=25)
+                validation_metrics = {}
+                total_iter = (epoch+1)*self.train_iter_per_epoch
+                for iter, input in enumerate(loader):
+                    m1 = self.model.forward(input)
+                    m2 = self.model.backward_without_paramter_update(epoch)
+                    m = {**m1, **m2}
+                    metrics.update(m, self.batch_size)
+                    print(f"V{epoch:02}/{iter:05}/{metrics}")
+                    for key, item in m.items():
+                        if key in validation_metrics:
+                            validation_metrics[key] += item
+                        else:
+                            validation_metrics[key] = item
+
+                for key in validation_metrics:
+                    validation_metrics[key] /= (iter+1)
+
+                with torch.no_grad():
+                    self.model.forward(self.viz_input_val)
+                self.model.visualize_validation(self.logger, total_iter=total_iter, validation_metrics=validation_metrics, max_bs=25)
 
         # if is_validation:
         #     last_train_iter = (epoch+1)*self.train_iter_per_epoch

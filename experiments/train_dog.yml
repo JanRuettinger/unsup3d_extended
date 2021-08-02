@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/09
+checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/real_fake_3
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -28,14 +28,14 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc_decrease_start_epoch: 200
-lam_perc_weight: 0.5 # 1
+lam_perc_weight: 2 # 1
 lam_flip_weight: 0.6
 lr_generator: 0.001
 perc_loss_type: lpips
 albedo_net_type: no_resnet
 depthmap_net_type: resnet
 use_depthmap_prior: true
-use_conf_map: false
+use_conf_map: true
 view_loss_weight: 0.1
 
 # discriminator
@@ -50,6 +50,6 @@ fov: 10  # in degrees
 tex_cube_size: 2
 blend_param_sigma: 0.00001
 blend_param_gamma: 0.00001
-faces_per_pixel: 6
+faces_per_pixel: 16
 znear_render: 0.7
 zfar_render: 1.3

@@ -705,4 +705,4 @@ def set_requires_grad(nets, requires_grad=False):
     for net in nets:
         if net is not None:
             for param in net.parameters():
-                param.requires_grad = requires_grad
+                param.requires_grad_(requires_grad)
