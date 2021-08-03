@@ -362,9 +362,9 @@ class Trainer:
         else:
             d_loss_real = losses.compute_lse(d_real, 1)
 
-        detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
-        img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
-        img.save('real_disc_train.png')
+        # detached_x_real = (masked_input_im/2 + 0.5).detach().permute(0,2,3,1)[0].cpu().numpy()*255
+        # img = Image.fromarray(np.uint8(detached_x_real)).convert('RGB')
+        # img.save('real_disc_train.png')
 
         # input_im.requires_grad_() # QUESTION: Why required true on input tensor?
         # reg = 10. * losses.compute_grad2(d_real, input_im).mean()

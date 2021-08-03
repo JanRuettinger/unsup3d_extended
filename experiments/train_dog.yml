@@ -3,21 +3,21 @@
 run_train: true
 num_epochs: 120
 batch_size: 40
-checkpoint_dir: /scratch/local/ssd/janhr/results/debug_gan_refactor/old_gan2
+checkpoint_dir: /scratch/local/ssd/janhr/results/dogs_small/gan_stable_05
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/dogs/no_confmap
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
-log_freq: 100
+log_freq: 20
 
 ## dataloader
 num_workers: 4
 image_size: 128
-depthmap_size: 64
+depthmap_size: 32
 # crop: 170 # 64 for debug_2 170 for normal
 load_gt_depth: false
-train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
+train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped_small
 # train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/dogs_cropped
 
 # generator
@@ -28,8 +28,8 @@ xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
 lam_perc: 2 # 1
-lam_perc_decrease_start_epoch: 200
-discriminator_loss_start_epoch: -1
+lam_perc_decrease_start_epoch: 30
+discriminator_loss_start_epoch: 1
 lam_flip: 0.6
 use_lpips: true
 use_depthmap_prior: true
@@ -43,7 +43,7 @@ view_loss_weight: 0
 
 # discriminator
 lr_discriminator: 0.001
-discriminator_loss: 0
+discriminator_loss: 0.01
 discriminator_loss_type: bce
 
 ## renderer
