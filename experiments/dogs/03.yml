@@ -2,14 +2,14 @@
 ## trainer
 run_train: true
 num_epochs: 120
-batch_size: 20
+batch_size: 40
 # checkpoint_dir: /scratch/local/ssd/janhr/results/dogs_small_2/unstable_GAN_resnet_albedo_with_gan_4
 checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/unstable_GAN
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
-log_freq_train: 100
+log_freq_train: 150
 log_freq_val: 40
 
 ## dataloader
