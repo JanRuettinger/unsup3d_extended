@@ -311,140 +311,147 @@ class Unsup3d:
 
         return {"loss_D_GAN_real": self.loss_D_GAN_real, "loss_D_GAN_fake": self.loss_D_GAN_fake, "loss_G_GAN": self.loss_G_GAN, "loss_G_total": self.loss_G_total}
 
-    def visualize_validation(self, logger, total_iter, validation_metrics,max_bs=25):
-        b, c, h, w = self.input_im.shape
-        b0 = min(max_bs, b)
+    # def visualize(self, logger, total_iter, validation_metrics,is_train,max_bs=25):
+    #     b, c, h, w = self.input_im.shape
+    #     b0 = min(max_bs, b)
 
-        loss_G_GAN = validation_metrics["loss_G_GAN"]
-        loss_G_total = validation_metrics["loss_G_total"]
-        loss_conventional = validation_metrics["loss_conventional"]
-        loss_l1_im = validation_metrics["loss_l1_im"]
-        loss_l1_im_flip = validation_metrics["loss_l1_im_flip"]
-        loss_D_GAN_fake = validation_metrics["loss_D_GAN_fake"]
-        loss_D_GAN_real = validation_metrics["loss_D_GAN_real"]
-        loss_perc_im = validation_metrics["loss_perc_im"]
-        loss_perc_im_flip = validation_metrics["loss_perc_im_flip"]
-        loss_view = validation_metrics["loss_view"]
+    #     loss_G_GAN = validation_metrics["loss_G_GAN"]
+    #     loss_G_total = validation_metrics["loss_G_total"]
+    #     loss_conventional = validation_metrics["loss_conventional"]
+    #     loss_l1_im = validation_metrics["loss_l1_im"]
+    #     loss_l1_im_flip = validation_metrics["loss_l1_im_flip"]
+    #     loss_D_GAN_fake = validation_metrics["loss_D_GAN_fake"]
+    #     loss_D_GAN_real = validation_metrics["loss_D_GAN_real"]
+    #     loss_perc_im = validation_metrics["loss_perc_im"]
+    #     loss_perc_im_flip = validation_metrics["loss_perc_im_flip"]
+    #     loss_view = validation_metrics["loss_view"]
 
-        # create shading image
-        white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
-        new_light = { "ambient": -1*torch.ones_like(self.canon_light_a), "diffuse": torch.ones_like(self.canon_light_b), "direction": self.canon_light_d}
-        self.shading_img = self.renderer(self.meshes, white_albedo, self.view, new_light)
-        self.shading_img = self.shading_img[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+    #     # create shading image
+    #     white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
+    #     new_light = { "ambient": -1*torch.ones_like(self.canon_light_a), "diffuse": torch.ones_like(self.canon_light_b), "direction": self.canon_light_d}
+    #     self.shading_img = self.renderer(self.meshes, white_albedo, self.view, new_light)
+    #     self.shading_img = self.shading_img[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
-        # create side view of shading image
-        side_view = utils.get_side_view(self.view)
-        self.shading_img_side_view = self.renderer(self.meshes, white_albedo,side_view,new_light)
-        self.shading_img_side_view = self.shading_img_side_view[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+    #     # create side view of shading image
+    #     side_view = utils.get_side_view(self.view)
+    #     self.shading_img_side_view = self.renderer(self.meshes, white_albedo,side_view,new_light)
+    #     self.shading_img_side_view = self.shading_img_side_view[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
-        # sude view zoomed out
-        side_view_zoom_out = utils.get_side_view(self.view, zoom_mode=1)
-        self.shading_img_side_view_zoom_out = self.renderer(self.meshes, white_albedo,side_view_zoom_out,new_light)
-        self.shading_img_side_view_zoom_out = self.shading_img_side_view_zoom_out[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+    #     # sude view zoomed out
+    #     side_view_zoom_out = utils.get_side_view(self.view, zoom_mode=1)
+    #     self.shading_img_side_view_zoom_out = self.renderer(self.meshes, white_albedo,side_view_zoom_out,new_light)
+    #     self.shading_img_side_view_zoom_out = self.shading_img_side_view_zoom_out[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
 
-        # render rotations for shadding image
-        num_rotated_frames = 12
-        self.rotated_views = utils.calculate_views_for_360_video(self.view, num_frames=num_rotated_frames).to(self.device)
-        shading_img_rotated_video = []
-        for i in range(num_rotated_frames):
-            shading_img_rotated = self.renderer(self.meshes, white_albedo,self.rotated_views[i], new_light)
-            shading_img_rotated = shading_img_rotated[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
-            shading_img_rotated = shading_img_rotated[:b0].detach()
-            shading_img_rotated_video.append(shading_img_rotated)
-        shading_img_rotated_video = torch.stack(shading_img_rotated_video).permute(1,0,2,3,4)
+    #     # render rotations for shadding image
+    #     num_rotated_frames = 12
+    #     self.rotated_views = utils.calculate_views_for_360_video(self.view, num_frames=num_rotated_frames).to(self.device)
+    #     shading_img_rotated_video = []
+    #     for i in range(num_rotated_frames):
+    #         shading_img_rotated = self.renderer(self.meshes, white_albedo,self.rotated_views[i], new_light)
+    #         shading_img_rotated = shading_img_rotated[...,0].clamp(min=0).unsqueeze(3).permute(0,3,1,2)
+    #         shading_img_rotated = shading_img_rotated[:b0].detach()
+    #         shading_img_rotated_video.append(shading_img_rotated)
+    #     shading_img_rotated_video = torch.stack(shading_img_rotated_video).permute(1,0,2,3,4)
         
-        # render rotations for reconstructed image
-        reconstructed_img_rotated_video = []
-        for i in range(num_rotated_frames):
-            reconstructed_img_rotated = self.renderer(self.meshes,self.canon_albedo,self.rotated_views[i], self.lighting)
-            reconstructed_img_rotated = reconstructed_img_rotated[...,:3].permute(0,3,1,2)
-            reconstructed_img_rotated = reconstructed_img_rotated[:b0].detach()
-            reconstructed_img_rotated_video.append(reconstructed_img_rotated)
-        reconstructed_img_rotated_video = torch.stack(reconstructed_img_rotated_video).permute(1,0,2,3,4)
+    #     # render rotations for reconstructed image
+    #     reconstructed_img_rotated_video = []
+    #     for i in range(num_rotated_frames):
+    #         reconstructed_img_rotated = self.renderer(self.meshes,self.canon_albedo,self.rotated_views[i], self.lighting)
+    #         reconstructed_img_rotated = reconstructed_img_rotated[...,:3].permute(0,3,1,2)
+    #         reconstructed_img_rotated = reconstructed_img_rotated[:b0].detach()
+    #         reconstructed_img_rotated_video.append(reconstructed_img_rotated)
+    #     reconstructed_img_rotated_video = torch.stack(reconstructed_img_rotated_video).permute(1,0,2,3,4)
 
-        input_im = self.input_im[:b0].detach().cpu() 
-        canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
-        recon_im = self.recon_im[:b0].detach().cpu()
-        recon_im_flip = self.recon_im[b:b+b0].detach().cpu()
-        alpha_mask = self.alpha_mask[:b0].detach().cpu()
-        shading_im = self.shading_img[:b0].detach().cpu()
-        shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
-        shading_im_side_view_zoom_out = self.shading_img_side_view_zoom_out[:b0].detach().cpu()
-        canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
-        canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5 # flip(1) is necessary since pytorch3d uses different y axis orientation
-        canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
-        canon_light_a = self.canon_light_a/2.+0.5
-        canon_light_b = self.canon_light_b/2.+0.5
+    #     input_im = self.input_im[:b0].detach().cpu() 
+    #     canon_albedo = self.canon_albedo[:b0].detach().cpu() /2.+0.5
+    #     recon_im = self.recon_im[:b0].detach().cpu()
+    #     recon_im_flip = self.recon_im[b:b+b0].detach().cpu()
+    #     alpha_mask = self.alpha_mask[:b0].detach().cpu()
+    #     shading_im = self.shading_img[:b0].detach().cpu()
+    #     shading_im_side_view = self.shading_img_side_view[:b0].detach().cpu()
+    #     shading_im_side_view_zoom_out = self.shading_img_side_view_zoom_out[:b0].detach().cpu()
+    #     canon_depth_raw_hist = self.canon_depth_raw.detach().unsqueeze(1).cpu()
+    #     canon_depth_raw = self.canon_depth_raw[:b0].detach().unsqueeze(1).cpu() /2.+0.5 # flip(1) is necessary since pytorch3d uses different y axis orientation
+    #     canon_depth = ((self.canon_depth[:b0] -self.min_depth)/(self.max_depth-self.min_depth)).detach().cpu().unsqueeze(1)
+    #     canon_light_a = self.canon_light_a/2.+0.5
+    #     canon_light_b = self.canon_light_b/2.+0.5
 
-        shadding_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(shading_img_rotated_video, 1)]  # [(C,H,W)]*T
-        shadding_im_rotate_grid = torch.stack(shadding_im_rotate_grid, 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
+    #     shadding_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(shading_img_rotated_video, 1)]  # [(C,H,W)]*T
+    #     shadding_im_rotate_grid = torch.stack(shadding_im_rotate_grid, 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
-        reconstructed_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(reconstructed_img_rotated_video, 1)]  # [(C,H,W)]*T
-        reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
+    #     reconstructed_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(reconstructed_img_rotated_video, 1)]  # [(C,H,W)]*T
+    #     reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
-        ## write summary
-        logger.add_scalar('Val_Loss/loss_total', loss_G_total, total_iter)
-        logger.add_scalar('Val_Loss/loss_without_gan', loss_conventional, total_iter)
-        logger.add_scalar('Val_Loss/loss_l1_im', loss_l1_im, total_iter)
-        logger.add_scalar('Val_Loss/loss_l1_im_flip', loss_l1_im_flip, total_iter)
-        logger.add_scalar('Val_Loss/loss_perc_im', loss_perc_im, total_iter)
-        logger.add_scalar('Val_Loss/loss_perc_im_flipped', loss_perc_im_flip, total_iter)
-        logger.add_scalar('Val_Loss/loss_view', loss_view, total_iter)
-        # logger.add_scalar('Val_Loss/Weighted_loss_gan', self.discriminator_loss_weight*loss_G_GAN, total_iter)
+    #     ## write summary
+    #     logger.add_scalar('Val_Loss/loss_total', loss_G_total, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_without_gan', loss_conventional, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_l1_im', loss_l1_im, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_l1_im_flip', loss_l1_im_flip, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_perc_im', loss_perc_im, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_perc_im_flipped', loss_perc_im_flip, total_iter)
+    #     logger.add_scalar('Val_Loss/loss_view', loss_view, total_iter)
+    #     # logger.add_scalar('Val_Loss/Weighted_loss_gan', self.discriminator_loss_weight*loss_G_GAN, total_iter)
 
-        logger.add_scalar('Val_Loss_Dis/d_loss', (loss_D_GAN_real+loss_D_GAN_fake)*0.5, total_iter)
-        logger.add_scalar('Val_Loss_Dis/d_loss_real', loss_D_GAN_real, total_iter)
-        logger.add_scalar('Val_Loss_Dis/d_loss_fake', loss_D_GAN_fake, total_iter)
+    #     logger.add_scalar('Val_Loss_Dis/d_loss', (loss_D_GAN_real+loss_D_GAN_fake)*0.5, total_iter)
+    #     logger.add_scalar('Val_Loss_Dis/d_loss_real', loss_D_GAN_real, total_iter)
+    #     logger.add_scalar('Val_Loss_Dis/d_loss_fake', loss_D_GAN_fake, total_iter)
     
-        logger.add_histogram('Val_Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
-        vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
-        for i in range(self.view.shape[1]):
-            logger.add_histogram('Val_View/'+vlist[i], self.view[:,i], total_iter)
-        logger.add_histogram('Val_Light/canon_light_a', canon_light_a, total_iter)
-        logger.add_histogram('Val_Light/canon_light_b', canon_light_b, total_iter)
-        llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
-        for i in range(self.canon_light_d.shape[1]):
-            logger.add_histogram('Val_Light/'+llist[i], self.canon_light_d[:,i], total_iter)
+    #     logger.add_histogram('Val_Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
+    #     vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
+    #     for i in range(self.view.shape[1]):
+    #         logger.add_histogram('Val_View/'+vlist[i], self.view[:,i], total_iter)
+    #     logger.add_histogram('Val_Light/canon_light_a', canon_light_a, total_iter)
+    #     logger.add_histogram('Val_Light/canon_light_b', canon_light_b, total_iter)
+    #     llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
+    #     for i in range(self.canon_light_d.shape[1]):
+    #         logger.add_histogram('Val_Light/'+llist[i], self.canon_light_d[:,i], total_iter)
 
-        def log_grid_image(label, im, nrow=int(math.ceil(b0**0.5)), iter=total_iter):
-            im_grid = torchvision.utils.make_grid(im, nrow=nrow)
-            logger.add_image(label, im_grid, iter)
+    #     def log_grid_image(label, im, nrow=int(math.ceil(b0**0.5)), iter=total_iter):
+    #         im_grid = torchvision.utils.make_grid(im, nrow=nrow)
+    #         logger.add_image(label, im_grid, iter)
 
-        log_grid_image('Val_Image/input_image', input_im)
-        log_grid_image('Val_Image/canonical_albedo', canon_albedo)
-        log_grid_image('Val_Image/recon_image', recon_im)
-        log_grid_image('Val_Image/recon_image_flip', recon_im_flip)
-        log_grid_image('Val_Image/alpha_mask', alpha_mask)
-        log_grid_image('Val_Depth/canonical_depth_raw', canon_depth_raw)
-        log_grid_image('Val_Depth/canonical_depth', canon_depth)
-        log_grid_image('Val_Depth/diffuse_shading', shading_im)
-        log_grid_image('Val_Depth/diffuse_shading_side_view', shading_im_side_view)
-        log_grid_image('Val_Depth/diffuse_shading_side_view_zoom_out', shading_im_side_view_zoom_out)
+    #     log_grid_image('Val_Image/input_image', input_im)
+    #     log_grid_image('Val_Image/canonical_albedo', canon_albedo)
+    #     log_grid_image('Val_Image/recon_image', recon_im)
+    #     log_grid_image('Val_Image/recon_image_flip', recon_im_flip)
+    #     log_grid_image('Val_Image/alpha_mask', alpha_mask)
+    #     log_grid_image('Val_Depth/canonical_depth_raw', canon_depth_raw)
+    #     log_grid_image('Val_Depth/canonical_depth', canon_depth)
+    #     log_grid_image('Val_Depth/diffuse_shading', shading_im)
+    #     log_grid_image('Val_Depth/diffuse_shading_side_view', shading_im_side_view)
+    #     log_grid_image('Val_Depth/diffuse_shading_side_view_zoom_out', shading_im_side_view_zoom_out)
 
-        logger.add_histogram('Val_Image/canonical_albedo_hist', canon_albedo, total_iter)
+    #     logger.add_histogram('Val_Image/canonical_albedo_hist', canon_albedo, total_iter)
+    #     logger.add_histogram(f"Discriminator/discriminator_output_real", nn.functional.sigmoid(self.GAN_D_real_pred.detach()), total_iter)
+    #     logger.add_histogram(f"Discriminator/discriminator_output_fake", nn.functional.sigmoid(self.GAN_D_fake_pred.detach()), total_iter)
 
-        if self.use_conf_map:
-            conf_map_l1 = 1/(1+self.conf_sigma_l1[:b0,:1].detach().cpu()+EPS)
-            conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b0,1:].detach().cpu()+EPS)
-            conf_map_percl = 1/(1+self.conf_sigma_percl[:b0,:1].detach().cpu()+EPS)
-            conf_map_percl_flip = 1/(1+self.conf_sigma_percl[:b0,1:].detach().cpu()+EPS)
+    #     if self.use_conf_map:
+    #         conf_map_l1 = 1/(1+self.conf_sigma_l1[:b0,:1].detach().cpu()+EPS)
+    #         conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b0,1:].detach().cpu()+EPS)
+    #         conf_map_percl = 1/(1+self.conf_sigma_percl[:b0,:1].detach().cpu()+EPS)
+    #         conf_map_percl_flip = 1/(1+self.conf_sigma_percl[:b0,1:].detach().cpu()+EPS)
 
-            log_grid_image('Val_Conf/conf_map_l1', conf_map_l1)
-            logger.add_histogram('Val_Conf/conf_sigma_l1_hist', self.conf_sigma_l1[:,:1], total_iter)
-            log_grid_image('Val_Conf/conf_map_l1_flip', conf_map_l1_flip)
-            logger.add_histogram('Val_Conf/conf_sigma_l1_flip_hist', self.conf_sigma_l1[:,1:], total_iter)
-            log_grid_image('Val_Conf/conf_map_percl', conf_map_percl)
-            logger.add_histogram('Val_Conf/conf_sigma_percl_hist', self.conf_sigma_percl[:,:1], total_iter)
-            log_grid_image('Val_Conf/conf_map_percl_flip', conf_map_percl_flip)
-            logger.add_histogram('Val_Conf/conf_sigma_percl_flip_hist', self.conf_sigma_percl[:,1:], total_iter)
+    #         log_grid_image('Val_Conf/conf_map_l1', conf_map_l1)
+    #         logger.add_histogram('Val_Conf/conf_sigma_l1_hist', self.conf_sigma_l1[:,:1], total_iter)
+    #         log_grid_image('Val_Conf/conf_map_l1_flip', conf_map_l1_flip)
+    #         logger.add_histogram('Val_Conf/conf_sigma_l1_flip_hist', self.conf_sigma_l1[:,1:], total_iter)
+    #         log_grid_image('Val_Conf/conf_map_percl', conf_map_percl)
+    #         logger.add_histogram('Val_Conf/conf_sigma_percl_hist', self.conf_sigma_percl[:,:1], total_iter)
+    #         log_grid_image('Val_Conf/conf_map_percl_flip', conf_map_percl_flip)
+    #         logger.add_histogram('Val_Conf/conf_sigma_percl_flip_hist', self.conf_sigma_percl[:,1:], total_iter)
 
-        logger.add_video('Val_Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
-        logger.add_video('Val_Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
+    #     logger.add_video('Val_Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
+    #     logger.add_video('Val_Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
 
 
-    def visualize(self, logger, total_iter, max_bs=25):
+    def visualize(self, logger, total_iter, is_train, max_bs=25):
         b, c, h, w = self.input_im.shape
         b0 = min(max_bs, b)
+
+        if is_train:
+            prefix = "Train_"
+        else:
+            prefix = "Val_"
 
         # create shading image
         white_albedo = torch.ones_like(self.canon_albedo).to(self.device)
@@ -498,6 +505,20 @@ class Unsup3d:
         real, fake = self.get_real_fake()
         real = real.detach().cpu()
         fake = fake.detach().cpu()
+        loss_G_total = self.loss_G_total.detach().cpu()
+        loss_conventional = self.loss_conventional.detach().cpu()
+        loss_l1_im = self.loss_l1_im.detach().cpu()
+        loss_l1_im_flip = self.loss_l1_im_flip.detach().cpu()
+        loss_perc_im = self.loss_perc_im_flip.detach().cpu()
+        loss_perc_im_flip = self.loss_perc_im_flip.detach().cpu()
+        loss_view = self.loss_view.detach().cpu()
+        loss_weighted_gan_loss = (self.discriminator_loss_weight*self.loss_G_GAN.detach()).cpu()
+        loss_D_loss = ((self.loss_D_GAN_real+self.loss_D_GAN_fake)*0.5).detach().cpu()
+        loss_D_GAN_real = self.loss_D_GAN_real.detach().cpu()
+        loss_D_GAN_fake = self.loss_D_GAN_fake.detach().cpu()
+        discriminator_output_real = nn.functional.sigmoid(self.GAN_D_real_pred.detach()).cpu()
+        discriminator_output_fake = nn.functional.sigmoid(self.GAN_D_fake_pred.detach()).cpu()
+
 
         shadding_im_rotate_grid = [torchvision.utils.make_grid(img, nrow=int(math.ceil(b0**0.5))) for img in torch.unbind(shading_img_rotated_video, 1)]  # [(C,H,W)]*T
         shadding_im_rotate_grid = torch.stack(shadding_im_rotate_grid, 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
@@ -506,52 +527,52 @@ class Unsup3d:
         reconstructed_im_rotate_grid = torch.stack(reconstructed_im_rotate_grid , 0).unsqueeze(0).cpu()  # (1,T,C,H,W)
 
         ## write summary
-        logger.add_scalar('Loss/loss_total', self.loss_G_total, total_iter)
-        logger.add_scalar('Loss/loss_without_gan', self.loss_conventional, total_iter)
-        logger.add_scalar('Loss/loss_l1_im', self.loss_l1_im, total_iter)
-        logger.add_scalar('Loss/loss_l1_im_flip', self.loss_l1_im_flip, total_iter)
-        logger.add_scalar(f'Loss/loss_perc_im', self.loss_perc_im, total_iter)
-        logger.add_scalar(f'Loss/loss_perc_im_flipped', self.loss_perc_im_flip, total_iter)
-        logger.add_scalar('Loss/loss_view', self.loss_view, total_iter)
-        logger.add_scalar('Loss/Weighted_loss_gan', self.discriminator_loss_weight*self.loss_G_GAN, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_total", loss_G_total, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_without_gan", loss_conventional, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_l1_im", loss_l1_im, total_iter)
+        logger.add_scalar(f"{prefix}_loss/loss_l1_im_flip", loss_l1_im_flip, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_perc_im", loss_perc_im, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_perc_im_flipped", loss_perc_im_flip, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/loss_view", loss_view, total_iter)
+        logger.add_scalar(f"{prefix}_Loss/Weighted_loss_gan", loss_weighted_gan_loss, total_iter)
 
-        logger.add_scalar('Loss_Dis/d_loss', (self.loss_D_GAN_real+self.loss_D_GAN_fake)*0.5, total_iter)
-        logger.add_scalar('Loss_Dis/d_loss_real', self.loss_D_GAN_real, total_iter)
-        logger.add_scalar('Loss_Dis/d_loss_fake', self.loss_D_GAN_fake, total_iter)
+        logger.add_scalar(f"{prefix}_Loss_Dis/d_loss", loss_D_loss, total_iter)
+        logger.add_scalar(f"{prefix}_Loss_Dis/d_loss_real", loss_D_GAN_real, total_iter)
+        logger.add_scalar(f"{prefix}_Loss_Dis/d_loss_fake", loss_D_GAN_fake, total_iter)
     
-        logger.add_histogram(f"Discriminator/discriminator_output_real", self.GAN_D_real_pred, total_iter)
-        logger.add_histogram(f"Discriminator/discriminator_output_fake", self.GAN_D_fake_pred, total_iter)
+        logger.add_histogram(f"{prefix}_Discriminator/discriminator_output_real", discriminator_output_real, total_iter)
+        logger.add_histogram(f"{prefix}_Discriminator/discriminator_output_fake", discriminator_output_fake, total_iter)
 
 
-        logger.add_histogram('Depth/canon_depth_raw_hist', canon_depth_raw_hist, total_iter)
+        logger.add_histogram(f"{prefix}_Depth/canon_depth_raw_hist", canon_depth_raw_hist, total_iter)
         vlist = ['view_rx', 'view_ry', 'view_rz', 'view_tx', 'view_ty', 'view_tz']
         for i in range(self.view.shape[1]):
-            logger.add_histogram('View/'+vlist[i], self.view[:,i], total_iter)
-        logger.add_histogram('Light/canon_light_a', canon_light_a, total_iter)
-        logger.add_histogram('Light/canon_light_b', canon_light_b, total_iter)
+            logger.add_histogram(f"{prefix}_View/"+vlist[i], self.view[:,i], total_iter)
+        logger.add_histogram(f"{prefix}_Light/canon_light_a", canon_light_a, total_iter)
+        logger.add_histogram(f"{prefix}_Light/canon_light_b", canon_light_b, total_iter)
         llist = ['canon_light_dx', 'canon_light_dy', 'canon_light_dz']
         for i in range(self.canon_light_d.shape[1]):
-            logger.add_histogram('Light/'+llist[i], self.canon_light_d[:,i], total_iter)
+            logger.add_histogram(f"{prefix}_Light/"+llist[i], self.canon_light_d[:,i], total_iter)
 
         def log_grid_image(label, im, nrow=int(math.ceil(b0**0.5)), iter=total_iter):
             im_grid = torchvision.utils.make_grid(im, nrow=nrow)
             logger.add_image(label, im_grid, iter)
 
-        log_grid_image('Image/input_image', input_im)
-        log_grid_image('Image/canonical_albedo', canon_albedo)
-        log_grid_image('Image/recon_image', recon_im)
-        log_grid_image('Image/recon_image_flip', recon_im_flip)
-        log_grid_image('Image/alpha_mask', alpha_mask)
-        log_grid_image('Depth/canonical_depth_raw', canon_depth_raw)
-        log_grid_image('Depth/canonical_depth', canon_depth)
-        log_grid_image('Depth/diffuse_shading', shading_im)
-        log_grid_image('Depth/diffuse_shading_side_view', shading_im_side_view)
-        log_grid_image('Depth/diffuse_shading_side_view_zoom_out', shading_im_side_view_zoom_out)
+        log_grid_image(f"{prefix}_Image/input_image", input_im)
+        log_grid_image(f"{prefix}_Image/canonical_albedo", canon_albedo)
+        log_grid_image(f"{prefix}_Image/recon_image", recon_im)
+        log_grid_image(f"{prefix}_Image/recon_image_flip", recon_im_flip)
+        log_grid_image(f"{prefix}_Image/alpha_mask", alpha_mask)
+        log_grid_image(f"{prefix}_Depth/canonical_depth_raw", canon_depth_raw)
+        log_grid_image(f"{prefix}_Depth/canonical_depth", canon_depth)
+        log_grid_image(f"{prefix}_Depth/diffuse_shading", shading_im)
+        log_grid_image(f"{prefix}_Depth/diffuse_shading_side_view", shading_im_side_view)
+        log_grid_image(f"{prefix}_Depth/diffuse_shading_side_view_zoom_out", shading_im_side_view_zoom_out)
 
-        log_grid_image('Image/real', real)
-        log_grid_image('Image/fake', fake)
+        log_grid_image(f"{prefix}_Image/real", real)
+        log_grid_image(f"{prefix}_Image/fake", fake)
 
-        logger.add_histogram('Image/canonical_albedo_hist', canon_albedo, total_iter)
+        logger.add_histogram(f"{prefix}_Image/canonical_albedo_hist", canon_albedo, total_iter)
 
         if self.use_conf_map:
             conf_map_l1 = 1/(1+self.conf_sigma_l1[:b0,:1].detach().cpu()+EPS)
@@ -559,17 +580,17 @@ class Unsup3d:
             conf_map_percl = 1/(1+self.conf_sigma_percl[:b0,:1].detach().cpu()+EPS)
             conf_map_percl_flip = 1/(1+self.conf_sigma_percl[:b0,1:].detach().cpu()+EPS)
 
-            log_grid_image('Conf/conf_map_l1', conf_map_l1)
-            logger.add_histogram('Conf/conf_sigma_l1_hist', self.conf_sigma_l1[:,:1], total_iter)
-            log_grid_image('Conf/conf_map_l1_flip', conf_map_l1_flip)
-            logger.add_histogram('Conf/conf_sigma_l1_flip_hist', self.conf_sigma_l1[:,1:], total_iter)
-            log_grid_image('Conf/conf_map_percl', conf_map_percl)
-            logger.add_histogram('Conf/conf_sigma_percl_hist', self.conf_sigma_percl[:,:1], total_iter)
-            log_grid_image('Conf/conf_map_percl_flip', conf_map_percl_flip)
-            logger.add_histogram('Conf/conf_sigma_percl_flip_hist', self.conf_sigma_percl[:,1:], total_iter)
+            log_grid_image(f"{prefix}_Conf/conf_map_l1", conf_map_l1)
+            logger.add_histogram(f"{prefix}_Conf/conf_sigma_l1_hist", self.conf_sigma_l1[:,:1], total_iter)
+            log_grid_image(f"{prefix}_Conf/conf_map_l1_flip", conf_map_l1_flip)
+            logger.add_histogram(f"{prefix}_Conf/conf_sigma_l1_flip_hist", self.conf_sigma_l1[:,1:], total_iter)
+            log_grid_image(f"{prefix}_Conf/conf_map_percl", conf_map_percl)
+            logger.add_histogram(f"{prefix}_Conf/conf_sigma_percl_hist", self.conf_sigma_percl[:,:1], total_iter)
+            log_grid_image(f"{prefix}_Conf/conf_map_percl_flip", conf_map_percl_flip)
+            logger.add_histogram(f"{prefix}_Conf/conf_sigma_percl_flip_hist", self.conf_sigma_percl[:,1:], total_iter)
 
-        logger.add_video('Image_rotate/shadding_rotate', shadding_im_rotate_grid, total_iter, fps=2)
-        logger.add_video('Image_rotate/recon_rotate', reconstructed_im_rotate_grid, total_iter, fps=2)
+        logger.add_video(f"{prefix}_Image_rotate/shadding_rotate", shadding_im_rotate_grid, total_iter, fps=2)
+        logger.add_video(f"{prefix}_Image_rotate/recon_rotate", reconstructed_im_rotate_grid, total_iter, fps=2)
 
 
     def save_results(self, save_dir):

@@ -155,8 +155,8 @@ class Trainer:
             if (epoch+1) % self.save_checkpoint_freq == 0:
                 pass
                 # self.save_checkpoint(epoch+1, optim=True)
-            self.metrics_trace.plot(pdf_path=os.path.join(self.checkpoint_dir, 'metrics.pdf'))
-            self.metrics_trace.save(os.path.join(self.checkpoint_dir, 'metrics.json'))
+            # self.metrics_trace.plot(pdf_path=os.path.join(self.checkpoint_dir, 'metrics.pdf'))
+            # self.metrics_trace.save(os.path.join(self.checkpoint_dir, 'metrics.json'))
 
         print(f"Training completed after {epoch+1} epochs.")
 
@@ -187,7 +187,7 @@ class Trainer:
                         with torch.no_grad():
                         #if self.log_fix_sample:
                             self.model.forward(self.viz_input_train)
-                        self.model.visualize(self.logger, total_iter=total_iter, max_bs=25)
+                        self.model.visualize(self.logger, total_iter=total_iter,is_train=True,max_bs=25)
 
         if is_validation:
             with torch.no_grad():
@@ -210,23 +210,7 @@ class Trainer:
 
                 with torch.no_grad():
                     self.model.forward(self.viz_input_val)
-                self.model.visualize_validation(self.logger, total_iter=total_iter, validation_metrics=validation_metrics, max_bs=25)
-
-        # if is_validation:
-        #     last_train_iter = (epoch+1)*self.train_iter_per_epoch
-        #     validation_metrics = []
-        #     for iter, input in enumerate(loader):
-        #         with torch.no_grad():
-        #             m1 = self.model.forward(input)
-        #             m2 = self.model.backward_without_paramter_update()
-        #             metrics.update(m1, self.batch_size)
-        #             validation_metrics.append({**m1, **m2})
-            
-        #     for m in validation_metrics:
-
-        #         print(f"V{epoch:02}/{iter:05}/{m1}")
-
-        #     self.model.visualize_validation(self.logger, total_iter=total_iter, max_bs=25)
+                self.model.visualize(self.logger, total_iter=total_iter, is_train=False, max_bs=25)
 
         return metrics
 
