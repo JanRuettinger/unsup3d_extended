@@ -3,7 +3,7 @@
 run_train: true
 num_epochs: 120
 batch_size: 20
-checkpoint_dir: /scratch/local/ssd/janhr/results/dogs_small_2/unstable_GAN_resnet_albedo_with_gan_4
+checkpoint_dir: /scratch/local/ssd/janhr/results/dogs_small_2/unstable_GAN_with_validation_no_resnet_albedo
 # checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/unstable_GAN_no_gan_loss_small_ds
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
@@ -32,7 +32,7 @@ lam_perc_weight: 1 # 1
 lam_flip_weight: 0.6
 lr_generator: 0.001
 perc_loss_type: lpips
-albedo_net_type: resnet
+albedo_net_type: no_resnet
 depthmap_net_type: resnet
 use_depthmap_prior: true
 use_conf_map: true

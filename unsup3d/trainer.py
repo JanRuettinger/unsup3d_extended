@@ -176,7 +176,7 @@ class Trainer:
             for iter, input in enumerate(loader):
                 # if iter > 100:
                 #     break
-                # self.model.reset_optimizer()
+                self.model.reset_optimizer()
                 m = self.model.forward(input)
                 self.model.backward(epoch)
                 metrics.update(m, self.batch_size)
