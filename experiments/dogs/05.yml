@@ -4,7 +4,7 @@ run_train: true
 num_epochs: 120
 batch_size: 40
 # checkpoint_dir: /scratch/local/ssd/janhr/results/dogs_small/gan_stable_05
-checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs/small_gan_loss
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/results/final_runs_medium/small_gan_loss
 save_checkpoint_freq: 10
 keep_num_checkpoint: 15
 resume: false
