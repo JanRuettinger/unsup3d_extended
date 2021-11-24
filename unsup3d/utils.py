@@ -98,18 +98,6 @@ def set_requires_grad(nets, requires_grad=False):
                 param.requires_grad = requires_grad
 
 
-def draw_bbox(im, size):
-    b, c, h, w = im.shape
-    h2, w2 = (h-size)//2, (w-size)//2
-    marker = np.tile(np.array([[1.],[0.],[0.]]), (1,size))
-    marker = torch.FloatTensor(marker)
-    im[:, :, h2, w2:w2+size] = marker
-    im[:, :, h2+size, w2:w2+size] = marker
-    im[:, :, h2:h2+size, w2] = marker
-    im[:, :, h2:h2+size, w2+size] = marker
-    return im
-
-
 def save_videos(out_fold, imgs, prefix='', suffix='', sep_folder=True, ext='.mp4', cycle=False):
     if sep_folder:
         out_fold = os.path.join(out_fold, suffix)
@@ -124,8 +112,9 @@ def save_videos(out_fold, imgs, prefix='', suffix='', sep_folder=True, ext='.mp4
             fs = np.concatenate([fs, fs[::-1]], 0)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         # fourcc = cv2.VideoWriter_fourcc(*'avc1')
-        vid = cv2.VideoWriter(os.path.join(out_fold, prefix+'%05d'%(i+offset)+suffix+ext), fourcc, 5, (fs.shape[2], fs.shape[1]))
-        [vid.write(np.uint8(f[...,::-1]*255.)) for f in fs]
+        vid = cv2.VideoWriter(os.path.join(out_fold, prefix+'%05d'%(i+offset)+suffix+ext), fourcc, 5, (fs.shape[2], fs.shape[1]), isColor=True)
+        # [vid.write(np.uint8(f[...,::-1]*255.)) for f in fs]
+        [vid.write(np.uint8(f*255.)) for f in fs]
         vid.release()
 
 
@@ -175,10 +164,6 @@ def compute_angular_distance(n1, n2, mask=None):
     return dist*mask if mask is not None else dist
 
 
-def save_scores(out_path, scores, header=''):
-    print('Saving scores to %s' %out_path)
-    np.savetxt(out_path, scores, fmt='%.8f', delimiter=',\t', header=header)
-
 def calculate_views_for_360_video(original_view, num_frames=8):
     views = []
     for i in range(num_frames):
@@ -189,7 +174,7 @@ def calculate_views_for_360_video(original_view, num_frames=8):
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0 #x
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0.6 #z
+        new_view[:,5] = 0 #z
         views.append(new_view)
     
     return torch.stack(views)
@@ -198,11 +183,11 @@ def get_side_view(original_view, zoom_mode=0):
     if zoom_mode == 0:
         new_view = original_view.detach().clone()
         new_view[:,0] = 0 # rotation around x axis
-        new_view[:,1] = -np.pi/2 # rotation around y axis
+        new_view[:,1] = -np.pi/4 # rotation around y axis
         new_view[:,2] = 0# rotation around z axis
         new_view[:,3] = 0 #x 
         new_view[:,4] = 0 #y
-        new_view[:,5] = 0 #z zoom out a little bit
+        new_view[:,5] = 0.15 #z zoom out a little bit
         return new_view
     if zoom_mode == 1:
         new_view = original_view.detach().clone()

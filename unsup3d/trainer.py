@@ -78,9 +78,6 @@ class Trainer:
         with torch.no_grad():
             m = self.run_epoch(self.test_loader, epoch=self.current_epoch, is_test=True)
 
-        score_path = os.path.join(self.test_result_dir, 'eval_scores.txt')
-        self.model.save_scores(score_path)
-
     def train(self):
         """Perform training."""
         ## archive code and configs
