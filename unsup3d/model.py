@@ -391,6 +391,12 @@ class Unsup3D:
         utils.save_videos(save_dir, shading_img_rotated_video, suffix="mesh_shading_rotated_video", sep_folder=sep_folder)
         utils.save_videos(save_dir, reconstructed_img_rotated_video, suffix="mesh_colored_rotated_video", sep_folder=sep_folder)
 
+        for key, item in enumerate(shading_img_rotated_video): 
+            utils.save_images(save_dir, item, suffix=f"shading_img_rotated_{key}", sep_folder=sep_folder)
+
+        for key, item in enumerate(reconstructed_img_rotated_video): 
+            utils.save_images(save_dir, item, suffix=f"reconstructed_img_rotated_{key}", sep_folder=sep_folder)
+
         if self.conf_map_enabled:
             conf_map_l1 = 1/(1+self.conf_sigma_l1[:b,:1].detach().cpu().numpy()+EPS)
             conf_map_l1_flip = 1/(1+self.conf_sigma_l1[:b,1:].detach().cpu().numpy()+EPS)
