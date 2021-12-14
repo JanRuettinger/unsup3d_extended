@@ -2,17 +2,17 @@
 ## trainer
 run_train: true
 run_test: true
-num_epochs: 30
+num_epochs: 1
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/debug/dogs
-checkpoint_dir: /scratch/local/ssd/janhr/results/dog_visualization_2
+checkpoint_dir: /scratch/local/ssd/janhr/results/cats_vis_1
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
 log_freq: 100
-test_result_dir: /scratch/local/ssd/janhr/results/dog_visualization_2
+test_result_dir: /scratch/local/ssd/janhr/results/cats_vis_1
 
 ## dataloader
 num_workers: 4
@@ -21,8 +21,8 @@ depthmap_size: 32
 #crop: 170 # 64 for debug_2 170 for normal
 # train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
 # train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
-train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped_small
-test_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped_small/test
+train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
+test_data_dir: //scratch/local/ssd/janhr/data/cat_combined/test
 
 # model
 model_name: unsup3d_celeba
