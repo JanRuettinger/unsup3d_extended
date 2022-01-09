@@ -2,36 +2,36 @@
 ## trainer
 run_train: true
 run_test: true
-num_epochs: 1
+num_epochs: 20
 batch_size: 25
 # checkpoint_dir: results/cat
 # checkpoint_dir: /scratch/local/ssd/janhr/results/debug/dogs
-checkpoint_dir: /scratch/local/ssd/janhr/results/dog_small_vis_1
+checkpoint_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/final/base_model/cats
 save_checkpoint_freq: 5
 keep_num_checkpoint: 15
 resume: false
 use_logger: true
 log_freq: 100
-test_result_dir: /scratch/local/ssd/janhr/results/dog_small_vis_1
+test_result_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/final/base_model/cats/vis
 
 ## dataloader
 num_workers: 4
 image_size: 128
 depthmap_size: 32
-#crop: 170 # 64 for debug_2 170 for normal
+crop: 170 # 64 for debug_2 170 for normal
 # train_val_data_dir: /scratch/local/ssd/janhr/data/cat_combined
 # train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped
-train_val_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped_small
-test_data_dir: /scratch/local/ssd/janhr/data/dogs_cropped_small/test
+train_val_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/cats
+test_data_dir: /scratch/shared/beegfs/janhr/data/unsup3d_extended/datasets/cats/test
 
 # model
-model_name: unsup3d_celeba
+model_name: unsup3d_cats
 min_depth: 0.9
 max_depth: 1.1
 xyz_rotation_range: 60  # (-r,r) in degrees
 xy_translation_range: 0.1  # (-t,t) in 3D
 z_translation_range: 0  # (-t,t) in 3D
-lam_perc: 1 # 1
+lam_perc: 3 # 1
 use_lpips: true
 use_depthmap_prior: true
 conf_map_enabled: true
