@@ -1,5 +1,4 @@
 
-
 This repository contains a Pytorch3D port of the code of the paper "[Unsupervised Learning of Probably Symmetric Deformable 3D Objects from Images in the Wild](https://arxiv.org/abs/1911.11130)" by [Wu](https://elliottwu.com) et al. You can find the original code [here](https://github.com/elliottwu/unsup3d).
 
 
@@ -22,30 +21,7 @@ You need to change the following lines in `phong_shading()` function in the file
 
 1. CelebA face dataset. Please download the original images (img_celeba.7z) from their website and run celeba_crop.py in data/ to crop the images.
 2. Cat face dataset composed of Cat Head Dataset and Oxford-IIIT Pet Dataset (license). This can be downloaded using the script download_cat.sh provided in data/.
-
-Please remember to cite the corresponding papers if you use these datasets.
-
-## Pretrained Models
-Pretrained models are provided for both datasets in the folder `pretrained`. Set the config option `resume=True` and copy the pretrained model to your `checkpoint_dir`.
-
-## Training and Testing
-```
-python run.py --config experiments/train_celeba.yml --gpu 0 --num_workers 4
-```
-Training & testing without a GPU is not recommended.
-
-## Known warnings/issues:
-1. `UserWarning: No mtl file provided`
-Warning appears when a depth map prior is loaded. Material information is not needed here. Warning can be ignoered.
-
-## Citations
-```
-@InProceedings{Wu_2020_CVPR,
-  author = {Shangzhe Wu and Christian Rupprecht and Andrea Vedaldi},
-  title = {Unsupervised Learning of Probably Symmetric Deformable 3D Objects from Images in the Wild},
-  booktitle = {CVPR},
-  year = {2020}
-}
-```
+3. Dogs dataset (see https://github.com/JanRuettinger/dog_heads_dataset)
 
 
+More coming soon
